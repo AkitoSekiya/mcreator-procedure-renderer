@@ -1,0 +1,69 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "if_else_demo",
+  "description": "If the entity is in water, chat about it; otherwise strike lightning. Then always report health.",
+  "trigger": "onRightClickedOnBlock",
+  "blocks": [
+    {
+      "node_id": "n1",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "n2",
+          "block_id": "entity_isinwater",
+          "value_inputs": {
+            "entity": { "node_id": "n3", "block_id": "entity_from_deps" }
+          }
+        }
+      },
+      "statement_inputs": {
+        "DO0": [
+          {
+            "node_id": "n4",
+            "block_id": "entity_send_chat",
+            "value_inputs": {
+              "text": { "node_id": "n5", "block_id": "text", "fields": { "TEXT": "水の中にいます！" } },
+              "actbar": { "node_id": "n6", "block_id": "logic_boolean", "fields": { "BOOL": "false" } },
+              "entity": { "node_id": "n7", "block_id": "entity_from_deps" }
+            }
+          }
+        ],
+        "ELSE": [
+          {
+            "node_id": "n8",
+            "block_id": "strike_lightning",
+            "fields": { "effectOnly": "FALSE" },
+            "value_inputs": {
+              "x": { "node_id": "n9", "block_id": "coord_x" },
+              "y": { "node_id": "n10", "block_id": "coord_y" },
+              "z": { "node_id": "n11", "block_id": "coord_z" }
+            }
+          }
+        ]
+      },
+      "next": {
+        "node_id": "n12",
+        "block_id": "entity_send_chat",
+        "value_inputs": {
+          "text": {
+            "node_id": "n13",
+            "block_id": "text_join",
+            "value_inputs": {
+              "ADD0": { "node_id": "n14", "block_id": "text", "fields": { "TEXT": "体力: " } },
+              "ADD1": {
+                "node_id": "n15",
+                "block_id": "entity_health",
+                "value_inputs": {
+                  "entity": { "node_id": "n16", "block_id": "entity_from_deps" }
+                }
+              }
+            }
+          },
+          "actbar": { "node_id": "n17", "block_id": "logic_boolean", "fields": { "BOOL": "false" } },
+          "entity": { "node_id": "n18", "block_id": "entity_from_deps" }
+        }
+      }
+    }
+  ]
+}

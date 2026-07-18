@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "hello",
+  "description": "Send a simple chat greeting to the triggering entity.",
+  "blocks": [
+    {
+      "node_id": "n1",
+      "block_id": "entity_send_chat",
+      "value_inputs": {
+        "text": {
+          "node_id": "n2",
+          "block_id": "text",
+          "fields": { "TEXT": "こんにちは！" }
+        },
+        "actbar": {
+          "node_id": "n3",
+          "block_id": "logic_boolean",
+          "fields": { "BOOL": "false" }
+        },
+        "entity": {
+          "node_id": "n4",
+          "block_id": "entity_from_deps"
+        }
+      }
+    }
+  ]
+}

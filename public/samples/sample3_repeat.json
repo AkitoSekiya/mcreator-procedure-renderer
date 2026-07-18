@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "repeat_particle",
+  "description": "Repeat spawning a heart particle 10 times.",
+  "blocks": [
+    {
+      "node_id": "n1",
+      "block_id": "controls_repeat_ext",
+      "value_inputs": {
+        "TIMES": { "node_id": "n2", "block_id": "math_number", "fields": { "NUM": "10" } }
+      },
+      "statement_inputs": {
+        "DO": [
+          {
+            "node_id": "n3",
+            "block_id": "spawn_particle",
+            "fields": { "particle": "minecraft:heart" },
+            "value_inputs": {
+              "x": { "node_id": "n4", "block_id": "coord_x" },
+              "y": { "node_id": "n5", "block_id": "coord_y" },
+              "z": { "node_id": "n6", "block_id": "coord_z" },
+              "xs": { "node_id": "n7", "block_id": "math_number", "fields": { "NUM": "0" } },
+              "ys": { "node_id": "n8", "block_id": "math_number", "fields": { "NUM": "0" } },
+              "zs": { "node_id": "n9", "block_id": "math_number", "fields": { "NUM": "0" } }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
