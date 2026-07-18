@@ -1,12 +1,18 @@
 // Mechanical tests for the 3 "broken input" cases required by SPEC.md §9-4:
 // unknown block_id -> E003, unknown input name -> E004, type mismatch -> E006.
-// Also covers the machine-value-vs-display-label W002 fix: blocks_full.json's
+// Also covers the machine-value-vs-display-label fix: blocks_full.json's
 // fields[].options are, for many blocks, *display labels* (e.g.
 // math_binary_ops.OP: "=","≠","<"...), not the machine values Blockly's XML
-// actually needs ("EQ","NEQ","LT"...). validate.ts now checks against the
-// real machine values sourced from blocks_render.json (see
-// src/lib/dropdownOptions.ts), auto-converts a label to its machine value
-// with a W002 warning, and still warns on truly unknown values.
+// actually needs ("EQ","NEQ","LT"...). validate.ts checks against the real
+// machine values sourced from blocks_render.json (see
+// src/lib/dropdownOptions.ts) and auto-converts a label to its machine value.
+//
+// SPEC.md v1.2 rule 9 changed label auto-conversion from "warn (W002) and
+// convert" to "silently convert, no message at all" — so the
+// math_binary_ops-label-value case below now asserts *zero* messages (it
+// previously asserted W002). This is a deliberate, task-authorized test
+// expectation update, not a regression: only truly-unknown values (matching
+// neither a machine value nor a label) still produce W002.
 // Run with: npm run check-broken
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -127,9 +133,10 @@ function docWithBinaryOp(opValue) {
 expectNoMessages('math_binary_ops-machine-value', docWithBinaryOp('EQ'));
 
 // math_binary_ops.OP = '=' (display label, per blocks_full.json's options) ->
-// W002, but the value must still be auto-converted to 'EQ' in the render XML.
+// SPEC v1.2 rule 9: silent auto-conversion, zero messages, but the value
+// must still be converted to 'EQ' in the render XML.
 {
-  const result = expectCode('math_binary_ops-label-value', docWithBinaryOp('='), 'W002');
+  const result = expectNoMessages('math_binary_ops-label-value', docWithBinaryOp('='));
   if (result.ok && result.normalized) {
     const xml = procedureToXmlString(result.normalized);
     const hasConvertedField = xml.includes('<field name="OP">EQ</field>');

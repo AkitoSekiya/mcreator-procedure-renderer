@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "check-samples": "tsx scripts/check-samples.mjs",
-    "check-broken": "tsx scripts/check-broken.mjs"
+    "check-broken": "tsx scripts/check-broken.mjs",
+    "check-graph": "tsx scripts/check-graph.mjs"
   },
   "dependencies": {
     "blockly": "^11.2.2",

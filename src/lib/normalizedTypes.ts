@@ -13,6 +13,13 @@ export interface NormalizedNode {
 export interface NormalizedProcedure {
   procedureName: string;
   trigger: string | null;
-  /** Main statement sequence (next-chains flattened). */
-  sequence: NormalizedNode[];
+  /**
+   * Independent, next-chain-flattened statement stacks (SPEC.md v1.2 §5
+   * "ルート自動分類"). `stacks[0]` is the main sequence, connected after the
+   * trigger (or rendered as the sole root when there's no trigger).
+   * `stacks[1..]` are additional stacks that weren't reachable from the main
+   * sequence — each produces a W004 warning and is still rendered as its own
+   * independent top-level block group.
+   */
+  stacks: NormalizedNode[][];
 }

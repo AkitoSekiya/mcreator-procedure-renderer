@@ -1,0 +1,46 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "if_else_demo",
+  "description": "Flat graph-format equivalent of sample2_if_else.json: every node is listed flatly in `blocks`, and value_inputs/statement_inputs/next reference each other by node_id string instead of nesting objects inline. Produces the exact same rendered XML as sample2_if_else.json.",
+  "trigger": { "type": "onRightClickedOnBlock" },
+  "blocks": [
+    {
+      "node_id": "n1",
+      "block_id": "controls_if",
+      "value_inputs": { "IF0": "n2" },
+      "statement_inputs": { "DO0": ["n4"], "ELSE": ["n8"] },
+      "next": "n12"
+    },
+    { "node_id": "n2", "block_id": "entity_isinwater", "value_inputs": { "entity": "n3" } },
+    { "node_id": "n3", "block_id": "entity_from_deps" },
+    {
+      "node_id": "n4",
+      "block_id": "entity_send_chat",
+      "value_inputs": { "text": "n5", "actbar": "n6", "entity": "n7" }
+    },
+    { "node_id": "n5", "block_id": "text", "fields": { "TEXT": "水の中にいます！" } },
+    { "node_id": "n6", "block_id": "logic_boolean", "fields": { "BOOL": "false" } },
+    { "node_id": "n7", "block_id": "entity_from_deps" },
+    {
+      "node_id": "n8",
+      "block_id": "strike_lightning",
+      "fields": { "effectOnly": "FALSE" },
+      "value_inputs": { "x": "n9", "y": "n10", "z": "n11" }
+    },
+    { "node_id": "n9", "block_id": "coord_x" },
+    { "node_id": "n10", "block_id": "coord_y" },
+    { "node_id": "n11", "block_id": "coord_z" },
+    {
+      "node_id": "n12",
+      "block_id": "entity_send_chat",
+      "value_inputs": { "text": "n13", "actbar": "n17", "entity": "n18" }
+    },
+    { "node_id": "n13", "block_id": "text_join", "value_inputs": { "ADD0": "n14", "ADD1": "n15" } },
+    { "node_id": "n14", "block_id": "text", "fields": { "TEXT": "体力: " } },
+    { "node_id": "n15", "block_id": "entity_health", "value_inputs": { "entity": "n16" } },
+    { "node_id": "n16", "block_id": "entity_from_deps" },
+    { "node_id": "n17", "block_id": "logic_boolean", "fields": { "BOOL": "false" } },
+    { "node_id": "n18", "block_id": "entity_from_deps" }
+  ]
+}

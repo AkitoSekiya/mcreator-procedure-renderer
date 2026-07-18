@@ -95,25 +95,63 @@ function sequenceToXml(nodes: NormalizedNode[], startIdx = 0): string {
   return blockToXml(node, nextXml);
 }
 
+/** Vertical spacing (workspace px) between independent top-level stacks, so
+ * SPEC.md v1.2's extra/disconnected stacks don't land exactly on top of the
+ * main stack — Blockly places any top-level `<block>` lacking `x`/`y` at the
+ * same default origin, which would otherwise make every stack but the last
+ * invisible (fully overlapping). Only the *root* block of a stack gets a
+ * position; nested/next-chained blocks are never positioned individually. */
+const STACK_VERTICAL_GAP = 300;
+
+/** Renders a top-level, unconnected stack with an explicit `x`/`y` on its
+ * root block. `stackIndex` 0 is the main stack (kept at the origin so it
+ * matches pre-multi-stack XML byte-for-byte); each extra stack is offset
+ * further down. */
+function rootStackToXml(nodes: NormalizedNode[], stackIndex: number): string {
+  const xml = sequenceToXml(nodes);
+  if (!xml || stackIndex === 0) return xml;
+  const y = stackIndex * STACK_VERTICAL_GAP;
+  // `xml` always starts with exactly `<block type="...">` (see blockToXml) —
+  // safe to inject position attributes into that first opening tag only.
+  return xml.replace(/^<block type="([^"]*)">/, `<block type="$1" x="0" y="${y}">`);
+}
+
 /** Builds the full workspace XML document (as a string) for a normalized
- * procedure, including the synthetic event_trigger hat block when present. */
+ * procedure, including the synthetic event_trigger hat block when present.
+ *
+ * SPEC.md v1.2 §5: `stacks[0]` is the main sequence, connected after the
+ * trigger (or the sole root when there's no trigger). `stacks[1..]` are
+ * independent, disconnected stacks (each produced a W004 warning during
+ * normalization) — Blockly XML legally supports multiple top-level `<block>`
+ * siblings under `<xml>`, so each extra stack is rendered as its own
+ * unconnected top-level block group alongside the main one.
+ */
 export function procedureToXmlString(proc: NormalizedProcedure): string {
-  const mainXml = sequenceToXml(proc.sequence);
-  let rootXml: string;
+  const [mainStack, ...extraStacks] = proc.stacks;
+  const mainXml = mainStack ? sequenceToXml(mainStack) : '';
+
+  let mainRootXml: string;
   if (proc.trigger !== null) {
     const triggerField = `<field name="trigger">${escapeText(proc.trigger)}</field>`;
     const nextXml = mainXml ? `<next>${mainXml}</next>` : '';
-    rootXml = `<block type="event_trigger">${triggerField}${nextXml}</block>`;
+    mainRootXml = `<block type="event_trigger">${triggerField}${nextXml}</block>`;
   } else {
-    rootXml = mainXml;
+    mainRootXml = mainXml;
   }
-  return `<xml xmlns="https://developers.google.com/blockly/xml">${rootXml}</xml>`;
+
+  // Extra stacks always get an explicit position (offset further down each
+  // time) so they render as visibly separate block groups instead of piling
+  // up on top of the main stack at Blockly's default origin.
+  const extraXml = extraStacks.map((stack, i) => rootStackToXml(stack, i + 1)).join('');
+
+  return `<xml xmlns="https://developers.google.com/blockly/xml">${mainRootXml}${extraXml}</xml>`;
 }
 
 /** Recursively counts how many blocks a normalized procedure should produce
  * once loaded into a Blockly workspace (including the event_trigger hat, if
- * any). Used as a safety-net cross-check against
- * `workspace.getAllBlocks().length` after domToWorkspace (SPEC.md §5.3). */
+ * any, and every independent stack). Used as a safety-net cross-check
+ * against `workspace.getAllBlocks().length` after domToWorkspace (SPEC.md
+ * §5.3). */
 export function countExpectedBlocks(proc: NormalizedProcedure): number {
   let count = proc.trigger !== null ? 1 : 0;
   const countSequence = (nodes: NormalizedNode[]): void => {
@@ -128,6 +166,6 @@ export function countExpectedBlocks(proc: NormalizedProcedure): number {
     for (const child of Object.values(node.valueInputs)) countNode(child);
     for (const children of Object.values(node.statementInputs)) countSequence(children);
   };
-  countSequence(proc.sequence);
+  for (const stack of proc.stacks) countSequence(stack);
   return count;
 }
