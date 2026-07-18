@@ -435,7 +435,9 @@ export function validateProcedure(
   return {
     messages: ctx.messages,
     ok: !hasError,
-    normalized: hasError ? null : { procedureName: doc.procedureName, trigger: doc.trigger.name, stacks },
+    normalized: hasError
+      ? null
+      : { procedureName: doc.procedureName, trigger: doc.trigger.name, stacks, mode: doc.mode },
   };
 }
 

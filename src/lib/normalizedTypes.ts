@@ -1,3 +1,5 @@
+import type { InputMode } from './resolvedTypes';
+
 /** The validated + normalized form of a procedure, ready for XML generation. */
 export interface NormalizedNode {
   nodeId: string;
@@ -22,4 +24,7 @@ export interface NormalizedProcedure {
    * independent top-level block group.
    */
   stacks: NormalizedNode[][];
+  /** Which input-format mode normalizeInput detected ('graph' vs 'legacy',
+   * see resolvedTypes.ts's InputMode) — a debugging aid, not surfaced in the UI. */
+  mode: InputMode;
 }

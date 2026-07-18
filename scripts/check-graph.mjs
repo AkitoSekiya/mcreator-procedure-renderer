@@ -241,6 +241,63 @@ for (const fv of ['1.0', 1, '1', 1.0]) {
   }
 }
 
+// --- 11. legacy-mode compatibility: no string references anywhere ->
+// multiple unreferenced statement roots auto-chain into ONE main sequence,
+// in blocks-array order, with zero warnings (v1's public contract: "blocks
+// array = one top-to-bottom main sequence"). No W004 in this mode.
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'legacy_multi_root_test',
+    blocks: [
+      { node_id: 'n1', block_id: 'entity_send_chat' },
+      { node_id: 'n2', block_id: 'entity_send_chat' },
+    ],
+  };
+  const result = validate(doc);
+  ok('legacy mode: two unreferenced roots, 0 errors', result.messages.filter((m) => m.severity === 'error').length === 0, JSON.stringify(result.messages));
+  ok('legacy mode: zero warnings (no W004)', result.messages.length === 0, JSON.stringify(result.messages));
+  ok('legacy mode: detected as mode="legacy"', result.normalized?.mode === 'legacy', result.normalized?.mode);
+  ok('legacy mode: exactly one stack', result.normalized?.stacks.length === 1, JSON.stringify(result.normalized?.stacks?.length));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const blockCount = (xml.match(/<block type="entity_send_chat"/g) ?? []).length;
+    ok('legacy mode: both blocks present in XML', blockCount === 2, xml);
+    ok('legacy mode: the two blocks are <next>-chained', xml.includes('<next>'), xml);
+  } else {
+    fail('legacy-multi-root test: expected a normalized result');
+  }
+}
+
+// --- 12. graph-mode preserved: string references present + two unreferenced
+// statement roots -> still W004, and the XML has 2 independent top-level
+// <block> groups (not chained together). Confirms the mode-detection rule
+// doesn't regress the graph-format multi-stack behavior from rule 5. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'graph_multi_root_test',
+    blocks: [
+      { node_id: 'root1', block_id: 'entity_send_chat', value_inputs: { entity: 'e1' } },
+      { node_id: 'e1', block_id: 'entity_from_deps' },
+      { node_id: 'root2', block_id: 'entity_send_chat', value_inputs: { entity: 'e2' } },
+      { node_id: 'e2', block_id: 'entity_from_deps' },
+    ],
+  };
+  const result = validate(doc);
+  ok('graph mode: detected as mode="graph"', result.normalized?.mode === 'graph', result.normalized?.mode);
+  ok('graph mode: two unreferenced roots -> W004', result.messages.some((m) => m.code === 'W004'), JSON.stringify(result.messages));
+  ok('graph mode: two independent stacks', result.normalized?.stacks.length === 2, JSON.stringify(result.normalized?.stacks?.length));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const blockCount = (xml.match(/<block type="entity_send_chat"/g) ?? []).length;
+    ok('graph mode: both roots present in XML as independent top-level blocks', blockCount === 2, xml);
+    ok('graph mode: the second root is explicitly positioned (not stacked on the first)', /<block type="entity_send_chat" x="0" y="\d+">/.test(xml), xml);
+  } else {
+    fail('graph-multi-root test: expected a normalized result');
+  }
+}
+
 if (failures > 0) {
   console.error(`\nFAILED: ${failures} graph-format test(s) did not produce the expected result.`);
   process.exit(1);
