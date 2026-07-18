@@ -6,6 +6,7 @@ import { formatMessagesAsText } from './lib/formatMessages';
 import { procedureToXmlString, countExpectedBlocks } from './blockly/toXml';
 import { injectWorkspace, loadProcedure, zoomIn, zoomOut, zoomToFit, clearWorkspace } from './blockly/workspace';
 import { copyWorkspaceImage } from './blockly/clipboardExport';
+import { exportPdf } from './blockly/pdfExport';
 import { Header } from './components/Header';
 import { ValidationList } from './components/ValidationList';
 import { ZoomControls } from './components/ZoomControls';
@@ -21,6 +22,7 @@ function AppInner(): JSX.Element {
   const [messages, setMessages] = useState<ValidationMessage[]>([]);
   const [procedureName, setProcedureName] = useState('procedure');
   const [toast, setToast] = useState<string | null>(null);
+  const [pdfSaving, setPdfSaving] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
@@ -101,6 +103,20 @@ function AppInner(): JSX.Element {
     }
   }, [procedureName]);
 
+  const handleSavePdf = useCallback(async (): Promise<void> => {
+    const ws = workspaceRef.current;
+    if (!ws) return;
+    setPdfSaving(true);
+    try {
+      await exportPdf(ws, procedureName);
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      setToast(`PDFの保存に失敗しました: ${detail}`);
+    } finally {
+      setPdfSaving(false);
+    }
+  }, [procedureName]);
+
   const handleCopyErrors = useCallback(async (): Promise<boolean> => {
     if (messages.length === 0) return false;
     try {
@@ -158,13 +174,23 @@ function AppInner(): JSX.Element {
         <section className="panel preview-panel">
           <div className="preview-header">
             <span className="preview-title">プレビュー</span>
-            <CopyButton
-              className="btn btn-primary btn-small"
-              idleLabel="画像をコピー"
-              successLabel="✓ コピーしました"
-              onCopy={handleCopyImage}
-              disabled={!ready}
-            />
+            <div className="preview-header-actions">
+              <CopyButton
+                className="btn btn-primary btn-small"
+                idleLabel="画像をコピー"
+                successLabel="✓ コピーしました"
+                onCopy={handleCopyImage}
+                disabled={!ready}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={handleSavePdf}
+                disabled={!ready || pdfSaving}
+              >
+                {pdfSaving ? '保存中…' : 'PDFで保存'}
+              </button>
+            </div>
           </div>
           <div className="workspace-wrap">
             <div className="workspace-host" ref={containerRef} />

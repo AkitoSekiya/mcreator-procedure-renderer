@@ -10,10 +10,12 @@
     "typecheck": "tsc -b --noEmit",
     "check-samples": "tsx scripts/check-samples.mjs",
     "check-broken": "tsx scripts/check-broken.mjs",
-    "check-graph": "tsx scripts/check-graph.mjs"
+    "check-graph": "tsx scripts/check-graph.mjs",
+    "check-pdf-layout": "tsx scripts/check-pdf-layout.mjs"
   },
   "dependencies": {
     "blockly": "^11.2.2",
+    "jspdf": "^2.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

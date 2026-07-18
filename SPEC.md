@@ -1,5 +1,12 @@
-# MCreator Procedure Renderer — 実装仕様書 (v1.2)
+# MCreator Procedure Renderer — 実装仕様書 (v1.3)
 
+> v1.3 変更点（PDF出力）:
+> - 「PDFで保存」ボタンを追加（`src/blockly/pdfExport.ts` + `src/lib/pdfLayout.ts`、依存に `jspdf` を追加）
+> - A4・余白10mm。縦向き/横向きは「1ページ全体フィット時の表示スケールが大きくなる方」を自動選択
+> - 縦長で1ページに収まらない場合のみ、幅フィットスケールを維持して縦方向を複数ページに分割。隣接ページは8mm重複、複数ページ時はページ番号を右下に印字
+> - 埋め込み画像は印刷200dpi以上を目標にラスタライズ（scale 2〜4にクランプ）。日本語フォント埋め込み問題を回避するためベクターPDFではなく高解像度ラスタ方式を採用
+> - レイアウト計算は純関数 `computePdfLayout` に分離し `scripts/check-pdf-layout.mjs` で機械検証
+>
 > v1.2 変更点（正規化レイヤーの追加）:
 > - **新パイプライン**: 入力JSON → `normalizeInput.ts`（新設、構造の正規化に専念）→ `ResolvedDoc`/`ResolvedNode` → `validate.ts`（blocks_full.json に基づく厳格検証に専念）→ `toXml.ts` → Blockly。正規化は検証より必ず先に走る
 > - **フラットなグラフ形式を受理**: `blocks` に全ノードをフラットに列挙し、`value_inputs`/`statement_inputs`/`next` の値に他ノードの `node_id` 文字列を書いて参照する形式を、従来のネスト形式と**混在可**で受理（§3参照）。既存のネスト形式は完全に従来通り動作する

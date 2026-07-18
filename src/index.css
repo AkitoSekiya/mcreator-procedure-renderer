@@ -309,6 +309,12 @@ button {
   color: #111827;
 }
 
+.preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .workspace-wrap {
   position: relative;
   flex: 1;
