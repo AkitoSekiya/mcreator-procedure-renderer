@@ -510,6 +510,22 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
     });
   }
 
+  // --- Mode detection (v1 compatibility) ---
+  // v1's public contract was "blocks array = one top-to-bottom main
+  // sequence" (README/SPEC v1). A document that contains *zero* node_id
+  // string references anywhere is, by definition, a pure old-style nested
+  // document — nothing in it could possibly rely on the new flat graph
+  // semantics, since that's exactly what a string reference is. For such
+  // documents we must keep the v1 behavior of auto-chaining every
+  // unreferenced top-level entry into a single main sequence in array order
+  // (no W004) — otherwise a v1-style multi-entry document (never tested by
+  // the original 3 samples, but promised by the original README/SPEC) would
+  // silently break into disconnected stacks under v1.2. Any document with at
+  // least one string reference is unambiguously using the new graph format,
+  // where connections are only ever explicit (next/statement_inputs/
+  // value_inputs) — array order carries no meaning there.
+  const mode: 'graph' | 'legacy' = edges.length > 0 ? 'graph' : 'legacy';
+
   // --- Phase 3: resolve multi-reference precedence (rule 7, W006) ---
   const { winningSlotKeys, referencedIds } = resolveWinners(edges, messages);
 
@@ -577,16 +593,27 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
     tryRoot(nodeId);
   }
 
-  if (stacks.length > 1) {
-    for (let i = 1; i < stacks.length; i += 1) {
-      const first = stacks[i][0];
-      messages.push({
-        code: 'W004',
-        severity: 'warn',
-        message: `ノード ${first?.nodeId ?? '?'} から始まる接続されていないステートメント列があります。独立したスタックとして描画します。`,
-        nodeId: first?.nodeId,
-        blockId: first?.blockId,
-      });
+  let finalStacks: ResolvedNode[][];
+  if (mode === 'legacy') {
+    // v1 compatibility: no string references anywhere means this can only be
+    // a pure nested-format document. Honor v1's contract by auto-chaining
+    // every unreferenced root, in blocks-array order, into a single main
+    // sequence — no W004, and no notification either (this was simply normal
+    // v1 behavior, not something worth flagging).
+    finalStacks = stacks.length > 0 ? [stacks.flat()] : [];
+  } else {
+    finalStacks = stacks;
+    if (finalStacks.length > 1) {
+      for (let i = 1; i < finalStacks.length; i += 1) {
+        const first = finalStacks[i][0];
+        messages.push({
+          code: 'W004',
+          severity: 'warn',
+          message: `ノード ${first?.nodeId ?? '?'} から始まる接続されていないステートメント列があります。独立したスタックとして描画します。`,
+          nodeId: first?.nodeId,
+          blockId: first?.blockId,
+        });
+      }
     }
   }
 
@@ -596,7 +623,8 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
       procedureName,
       mcreatorVersion,
       trigger,
-      stacks,
+      stacks: finalStacks,
+      mode,
     },
   };
 }
