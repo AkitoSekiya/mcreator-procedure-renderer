@@ -47,10 +47,30 @@ function mutationXml(node: NormalizedNode): string {
   return '';
 }
 
+/**
+ * call_procedure's "which procedure" field is deliberately catalogued in
+ * blocks_full.json (the validation source of truth) under the empty name ""
+ * — that's MCreator's own js-imperative source data, not a mistake, and
+ * validate.ts/README document it as the accepted input shape
+ * (`fields: {"": "ProcName"}`). But the *real* Blockly block, registered
+ * from blocks_render.json's JSON definition, names that same field
+ * "procedure". Blockly resolves `<field name="...">` by exact match against
+ * the block's actually-registered fields, so emitting `<field name="">`
+ * verbatim finds nothing on the real block (`getField('')` → null) and the
+ * procedure name silently fails to apply, leaving the field blank. Map only
+ * at the render boundary — normalize/validate keep treating "" as the
+ * canonical field name, per SPEC.
+ */
+const FIELD_NAME_XML_OVERRIDES: Partial<Record<string, Record<string, string>>> = {
+  call_procedure: { '': 'procedure' },
+};
+
 function fieldsXml(node: NormalizedNode): string {
+  const overrides = FIELD_NAME_XML_OVERRIDES[node.blockId];
   let xml = '';
   for (const [name, value] of Object.entries(node.fields)) {
-    xml += `<field name="${escapeAttr(name)}">${escapeText(value)}</field>`;
+    const xmlName = overrides?.[name] ?? name;
+    xml += `<field name="${escapeAttr(xmlName)}">${escapeText(value)}</field>`;
   }
   return xml;
 }
