@@ -298,6 +298,213 @@ for (const fv of ['1.0', 1, '1', 1.0]) {
   }
 }
 
+// --- 13-18. Regression tests for the "next inside a nested statement_inputs
+// slot gets silently dropped" bug: normalizeInput.ts's statement_inputs
+// resolution loop only resolved each array element itself, without
+// flattening that element's own next-chain into the array — so anything
+// reachable only via .next from a statement_inputs entry (at any nesting
+// depth: controls_if DO0/DO1/ELSE, repeat's DO, etc.) vanished from the
+// normalized tree and never reached the render XML. Fixed by flattening each
+// array element's next-chain (flattenNextChain) at resolution time, the same
+// way the top-level root stacks already were. These mirror the top-level
+// node_id-reference tests above but nest the equivalent structure one (or
+// more) statement_inputs levels deep. ---
+function boolNode(id) {
+  return { node_id: id, block_id: 'logic_boolean', fields: { BOOL: 'TRUE' } };
+}
+function numNode(id) {
+  return { node_id: id, block_id: 'math_number', fields: { NUM: '1' } };
+}
+function spawnNode(id, extra) {
+  return {
+    node_id: id,
+    block_id: 'spawn_entity',
+    fields: { entity: id },
+    value_inputs: { x: numNode(`${id}x`), y: numNode(`${id}y`), z: numNode(`${id}z`) },
+    ...extra,
+  };
+}
+
+// --- 13. Test A: next-chain nested inside statement_inputs (outer_if.DO0 =
+// inner_if_1, inner_if_1.next = inner_if_2, inner_if_2.next = inner_if_3).
+// All 3 inner ifs must survive and stay <next>-chained inside outer_if's DO0. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_a',
+    blocks: [
+      { node_id: 'outer_if', block_id: 'controls_if', value_inputs: { IF0: boolNode('c0') }, statement_inputs: { DO0: ['inner_if_1'] } },
+      { node_id: 'inner_if_1', block_id: 'controls_if', value_inputs: { IF0: boolNode('c1') }, next: 'inner_if_2' },
+      { node_id: 'inner_if_2', block_id: 'controls_if', value_inputs: { IF0: boolNode('c2') }, next: 'inner_if_3' },
+      { node_id: 'inner_if_3', block_id: 'controls_if', value_inputs: { IF0: boolNode('c3') } },
+    ],
+  };
+  const result = validate(doc);
+  const errors = result.messages.filter((m) => m.severity === 'error');
+  ok('nested-next-A: 0 errors', errors.length === 0, JSON.stringify(errors));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const count = (xml.match(/<block type="controls_if"/g) ?? []).length;
+    ok('nested-next-A: all 4 controls_if blocks present (outer + 3 chained inner)', count === 4, xml);
+    // 2 <next> links connect the 3 inner ifs (inner_if_1->2, inner_if_2->3);
+    // outer_if->inner_if_1 itself is a <statement name="DO0"> connection, not <next>.
+    ok('nested-next-A: inner ifs chained via <next> (not dropped)', (xml.match(/<next>/g) ?? []).length === 2, xml);
+  } else {
+    fail('nested-next-A: expected a normalized result');
+  }
+}
+
+// --- 14. Test B: next-chain of plain statement blocks (not controls_if)
+// nested inside a DO0 (inner_if.DO0 = spawn_1, spawn_1.next = spawn_2,
+// spawn_2.next = spawn_3). All 3 must survive, in order. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_b',
+    blocks: [
+      { node_id: 'inner_if', block_id: 'controls_if', value_inputs: { IF0: boolNode('c0') }, statement_inputs: { DO0: ['spawn_1'] } },
+      spawnNode('spawn_1', { next: 'spawn_2' }),
+      spawnNode('spawn_2', { next: 'spawn_3' }),
+      spawnNode('spawn_3'),
+    ],
+  };
+  const result = validate(doc);
+  const errors = result.messages.filter((m) => m.severity === 'error');
+  ok('nested-next-B: 0 errors', errors.length === 0, JSON.stringify(errors));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const count = (xml.match(/<block type="spawn_entity"/g) ?? []).length;
+    ok('nested-next-B: all 3 spawn_entity blocks present', count === 3, xml);
+    // Each spawn_N carries its own node_id as the `entity` field text (no
+    // surrounding quotes — it's element text content, not an XML attribute),
+    // so plain substring search is enough to check ordering.
+    const i1 = xml.indexOf('>spawn_1<');
+    const i2 = xml.indexOf('>spawn_2<');
+    const i3 = xml.indexOf('>spawn_3<');
+    ok('nested-next-B: spawn_1/2/3 appear in document order in the XML', i1 >= 0 && i1 < i2 && i2 < i3, xml);
+  } else {
+    fail('nested-next-B: expected a normalized result');
+  }
+}
+
+// --- 15. Test C: deep nesting mixing statement_inputs and next at multiple
+// levels — outer_if.DO0 = inner_if; inner_if.DO0 = [spawn_1 -> next
+// spawn_2]; inner_if.next = another_if; another_if.DO0 = spawn_3. Every
+// node must survive with correct parent/next relationships. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_c',
+    blocks: [
+      { node_id: 'outer_if', block_id: 'controls_if', value_inputs: { IF0: boolNode('c0') }, statement_inputs: { DO0: ['inner_if'] } },
+      {
+        node_id: 'inner_if',
+        block_id: 'controls_if',
+        value_inputs: { IF0: boolNode('c1') },
+        statement_inputs: { DO0: ['spawn_1'] },
+        next: 'another_if',
+      },
+      spawnNode('spawn_1', { next: 'spawn_2' }),
+      spawnNode('spawn_2'),
+      {
+        node_id: 'another_if',
+        block_id: 'controls_if',
+        value_inputs: { IF0: boolNode('c2') },
+        statement_inputs: { DO0: ['spawn_3'] },
+      },
+      spawnNode('spawn_3'),
+    ],
+  };
+  const result = validate(doc);
+  const errors = result.messages.filter((m) => m.severity === 'error');
+  ok('nested-next-C: 0 errors', errors.length === 0, JSON.stringify(errors));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const ifCount = (xml.match(/<block type="controls_if"/g) ?? []).length;
+    const spawnCount = (xml.match(/<block type="spawn_entity"/g) ?? []).length;
+    ok('nested-next-C: all 3 controls_if blocks present', ifCount === 3, xml);
+    ok('nested-next-C: all 3 spawn_entity blocks present', spawnCount === 3, xml);
+    // controls_if blocks carry no distinguishing text of their own, but each
+    // spawn_N's node_id is round-tripped through its `entity` field text, so
+    // ordering among the spawn blocks is directly checkable; combined with
+    // the DO0/next tag counts below this pins down the full nested shape
+    // (outer_if.DO0 -> inner_if.DO0 -> [spawn_1 -> next spawn_2],
+    // inner_if.next -> another_if.DO0 -> spawn_3).
+    const iSpawn1 = xml.indexOf('>spawn_1<');
+    const iSpawn2 = xml.indexOf('>spawn_2<');
+    const iSpawn3 = xml.indexOf('>spawn_3<');
+    ok('nested-next-C: spawn_1/2/3 appear in document order in the XML', iSpawn1 >= 0 && iSpawn1 < iSpawn2 && iSpawn2 < iSpawn3, xml);
+    const doCount = (xml.match(/<statement name="DO0">/g) ?? []).length;
+    const nextCount = (xml.match(/<next>/g) ?? []).length;
+    ok('nested-next-C: 3 DO0 statement slots used (outer, inner, another_if)', doCount === 3, xml);
+    ok('nested-next-C: 2 next-chain links used (inner_if->another_if, spawn_1->spawn_2)', nextCount === 2, xml);
+  } else {
+    fail('nested-next-C: expected a normalized result');
+  }
+}
+
+// --- 16. Test D: circular next reference (A.next=B, B.next=C, C.next=A) ->
+// E009, does not infinite-loop. Extends the existing 2-node cycle test
+// (above) to 3 nodes, matching the exact scenario called out for this fix. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_d_cycle',
+    blocks: [
+      { node_id: 'A', block_id: 'entity_send_chat', next: 'B' },
+      { node_id: 'B', block_id: 'entity_send_chat', next: 'C' },
+      { node_id: 'C', block_id: 'entity_send_chat', next: 'A' },
+    ],
+  };
+  const result = validate(doc);
+  ok('nested-next-D: 3-node circular next reference -> E009', result.messages.some((m) => m.code === 'E009'), JSON.stringify(result.messages));
+}
+
+// --- 17. Test E: next reference to a non-existent node_id, from inside a
+// statement_inputs-nested block -> E008 (not silently dropped). ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_e_missing_ref',
+    blocks: [
+      { node_id: 'inner_if', block_id: 'controls_if', value_inputs: { IF0: boolNode('c0') }, statement_inputs: { DO0: ['spawn_1'] } },
+      spawnNode('spawn_1', { next: 'missing_node' }),
+    ],
+  };
+  const result = validate(doc);
+  ok('nested-next-E: next to a missing node_id (nested) -> E008', result.messages.some((m) => m.code === 'E008'), JSON.stringify(result.messages));
+}
+
+// --- 18. Test F: the same node referenced from both statement_inputs (array
+// position) and another node's next -> W006, and the existing precedence
+// (value_inputs > statement_inputs > next) still wins: statement_inputs
+// keeps the node, the competing next edge is the one cut. No duplicate
+// block, no silent drop. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'nested_next_test_f_multi_ref',
+    blocks: [
+      { node_id: 'root', block_id: 'controls_if', value_inputs: { IF0: boolNode('c0') }, statement_inputs: { DO0: ['A', 'B'] } },
+      spawnNode('A', { next: 'B' }),
+      spawnNode('B'),
+    ],
+  };
+  const result = validate(doc);
+  const errors = result.messages.filter((m) => m.severity === 'error');
+  ok('nested-next-F: 0 errors', errors.length === 0, JSON.stringify(errors));
+  const w006 = result.messages.find((m) => m.code === 'W006');
+  ok('nested-next-F: multi-reference (statement_inputs + next) -> W006', !!w006, JSON.stringify(result.messages));
+  ok('nested-next-F: precedence unchanged (next edge is the one cut, not statement_inputs)', !!w006 && w006.message.includes('next'), w006 && w006.message);
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    const count = (xml.match(/<block type="spawn_entity"/g) ?? []).length;
+    ok('nested-next-F: node B appears exactly once (no duplicate connection)', count === 2, xml);
+  } else {
+    fail('nested-next-F: expected a normalized result');
+  }
+}
+
 if (failures > 0) {
   console.error(`\nFAILED: ${failures} graph-format test(s) did not produce the expected result.`);
   process.exit(1);

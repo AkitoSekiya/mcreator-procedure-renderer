@@ -307,7 +307,13 @@ function resolveNode(raw: unknown, path: ReadonlySet<string>, ctx: ResolveCtx): 
         arr.forEach((item, idx) => {
           const slotKey = `S:${nodeId}:${key}:${idx}`;
           const child = resolveSlot(item, slotKey, newPath, ctx);
-          if (child) children.push(child);
+          // Rule: "配列要素の後に next チェーンを展開して正規化する" applies at
+          // every nesting depth, not just to top-level roots (tryRoot below
+          // already did this for the outermost stacks) — each array element's
+          // own next-chain must be expanded in place before moving on to the
+          // next array element, or anything reachable only via .next from a
+          // statement_inputs entry silently disappears from the tree.
+          if (child) children.push(...flattenNextChain(child));
         });
         statementInputs[key] = children;
       }

@@ -51,6 +51,16 @@ button {
   color: #111827;
 }
 
+.app-version {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
 .app-subtitle {
   font-size: 0.85rem;
   color: #6b7280;
