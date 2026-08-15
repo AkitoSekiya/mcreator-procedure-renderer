@@ -505,6 +505,132 @@ function spawnNode(id, extra) {
   }
 }
 
+// --- 19-21. Regression tests for the "call_procedure's procedure name field
+// renders blank" bug: blocks_full.json (validation source of truth)
+// deliberately catalogues call_procedure's "which procedure" field under the
+// empty name "" (that's MCreator's own js-imperative source data, not a
+// mistake — see README/validate.ts's DYNAMIC_FIELD_PATTERNS comment), but
+// the *real* Blockly block registered from blocks_render.json names that
+// field "procedure". toXml.ts was emitting `<field name="">...</field>`
+// verbatim, which Blockly's XML loader can't match to any field on the real
+// block, so the procedure name silently failed to apply. Fixed in
+// src/blockly/toXml.ts's fieldsXml via a per-block-id field-name override
+// table (FIELD_NAME_XML_OVERRIDES), applied only at the render boundary —
+// normalizeInput.ts/validate.ts are untouched and still treat "" as the
+// canonical, correct field name per blocks_full.json/README. ---
+
+// --- 19. Test 1: fields: {"": "JamMake"} on call_procedure -> 0 errors,
+// renders, and the XML carries the procedure name under Blockly's real
+// field name ("procedure"), not the validation-only empty name. ---
+{
+  const doc = {
+    format_version: 1,
+    mcreator_version: '2025.1',
+    procedure_name: 'test',
+    blocks: [{ node_id: 'n1', block_id: 'call_procedure', fields: { '': 'JamMake' } }],
+  };
+  const result = validate(doc);
+  const errorCodes = result.messages.filter((m) => m.severity === 'error').map((m) => m.code);
+  ok('call_procedure-1: no E003/E004/E005 (or any error)', errorCodes.length === 0, JSON.stringify(result.messages));
+  ok('call_procedure-1: validates ok, normalized result present', result.ok && !!result.normalized, JSON.stringify(result.messages));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    ok('call_procedure-1: call_procedure block present in XML', xml.includes('<block type="call_procedure">'), xml);
+    ok(
+      'call_procedure-1: procedure name rendered under Blockly\'s real field name "procedure"',
+      xml.includes('<field name="procedure">JamMake</field>'),
+      xml,
+    );
+    ok('call_procedure-1: no literal empty field name leaked into the XML', !xml.includes('<field name="">'), xml);
+  } else {
+    fail('call_procedure-1: expected a normalized result');
+  }
+}
+
+// --- 20. Test 2: same shape, different procedure name (TestProcedure) ---
+{
+  const doc = {
+    format_version: 1,
+    mcreator_version: '2025.1',
+    procedure_name: 'test',
+    blocks: [{ node_id: 'n1', block_id: 'call_procedure', fields: { '': 'TestProcedure' } }],
+  };
+  const result = validate(doc);
+  const errorCodes = result.messages.filter((m) => m.severity === 'error').map((m) => m.code);
+  ok('call_procedure-2: no errors', errorCodes.length === 0, JSON.stringify(result.messages));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    ok('call_procedure-2: procedure name rendered correctly', xml.includes('<field name="procedure">TestProcedure</field>'), xml);
+  } else {
+    fail('call_procedure-2: expected a normalized result');
+  }
+}
+
+// --- 21. Test 3: existing ordinary-field blocks are unaffected — the
+// call_procedure-only override table must not touch any other block_id's
+// field names (including a block whose field happens to share a name with
+// something in the override table would still need block_id-scoping, but
+// simplest direct check: a normal named field renders under its own name
+// unchanged, for both a non-call_procedure block and call_procedure's own
+// non-"" dynamic fields like "name0"). ---
+{
+  // spawn_entity is a statement-shape root (unlike a bare value block, it
+  // won't be W005-excluded) and its own field_data_list_selector field
+  // ("entity") happens to be the same field *type* as call_procedure's, but
+  // a different, non-empty name — confirms the override table is keyed by
+  // block_id, not by field type, and never touches this field.
+  const doc = {
+    format_version: 1,
+    procedure_name: 'ordinary_field_test',
+    blocks: [
+      {
+        node_id: 'n1',
+        block_id: 'spawn_entity',
+        fields: { entity: 'minecraft:zombie' },
+        value_inputs: {
+          x: { node_id: 'x', block_id: 'math_number', fields: { NUM: '1' } },
+          y: { node_id: 'y', block_id: 'math_number', fields: { NUM: '1' } },
+          z: { node_id: 'z', block_id: 'math_number', fields: { NUM: '1' } },
+        },
+      },
+    ],
+  };
+  const result = validate(doc);
+  ok('call_procedure-3: ordinary block (spawn_entity.entity) still 0 errors', result.messages.filter((m) => m.severity === 'error').length === 0, JSON.stringify(result.messages));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    ok('call_procedure-3: ordinary field name is untouched by the call_procedure override', xml.includes('<field name="entity">minecraft:zombie</field>'), xml);
+  } else {
+    fail('call_procedure-3: expected a normalized result');
+  }
+}
+{
+  // call_procedure's dynamic "nameN" argument-name fields (README/SPEC's
+  // documented mutator-added names) must pass through unmapped — only the
+  // validation-only "" name gets remapped to "procedure".
+  const doc = {
+    format_version: 1,
+    procedure_name: 'call_procedure_dynamic_field_test',
+    blocks: [
+      {
+        node_id: 'n1',
+        block_id: 'call_procedure',
+        fields: { '': 'WithArgs', name0: 'firstArg' },
+        value_inputs: { arg0: { node_id: 'n2', block_id: 'math_number', fields: { NUM: '1' } } },
+      },
+    ],
+  };
+  const result = validate(doc);
+  ok('call_procedure-3: dynamic name0/arg0 fields still 0 errors', result.messages.filter((m) => m.severity === 'error').length === 0, JSON.stringify(result.messages));
+  if (result.normalized) {
+    const xml = procedureToXmlString(result.normalized);
+    ok('call_procedure-3: "" -> "procedure" remapped', xml.includes('<field name="procedure">WithArgs</field>'), xml);
+    ok('call_procedure-3: dynamic "name0" field left unmapped', xml.includes('<field name="name0">firstArg</field>'), xml);
+  } else {
+    fail('call_procedure-3: expected a normalized result (dynamic fields)');
+  }
+}
+
 if (failures > 0) {
   console.error(`\nFAILED: ${failures} graph-format test(s) did not produce the expected result.`);
   process.exit(1);
