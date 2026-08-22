@@ -36,5 +36,8 @@ jobs:
       - name: Check MCreator 2025.1 compatibility (guards, mutators, samples)
         run: npm run check-compat
 
+      - name: Check MCreator 2025.1 features (variables, triggers, iterator scope)
+        run: npm run check-mcreator-features
+
       - name: Check PDF layout
         run: npm run check-pdf-layout

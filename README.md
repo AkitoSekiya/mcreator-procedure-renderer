@@ -42,14 +42,17 @@ npm run preview
 ## 型チェック・検証スクリプト
 
 ```bash
-npm run typecheck     # tsc -b --noEmit
-npm run check-samples # public/samples/*.json をアプリと同じ validate.ts で検証し、全件エラー0であることを確認
-npm run check-broken  # 壊れ入力（unknown block_id / 未知input名 / 型不一致）がE003/E004/E006になることを確認
-npm run check-graph   # フラットなグラフ形式の正規化（node_id参照解決・循環検出・多重参照・ルート分類等）を確認
-npm run check-compat  # MCreator 2025.1互換性チェック（安全ガード・call_procedure引数mutator・捕獲/再召喚サンプル等）
+npm run typecheck               # tsc -b --noEmit
+npm run check-samples           # public/samples/*.json をアプリと同じ validate.ts で検証し、全件エラー0であることを確認
+npm run check-broken            # 壊れ入力（unknown block_id / 未知input名 / 型不一致）がE003/E004/E006になることを確認
+npm run check-graph             # フラットなグラフ形式の正規化（node_id参照解決・循環検出・多重参照・ルート分類等）を確認
+npm run check-compat            # MCreator 2025.1互換性チェック（安全ガード・call_procedure引数mutator・捕獲/再召喚サンプル等）
+npm run check-mcreator-features # 変数（9型×6スコープ）・trigger自動補完・iteratorスコープ検出・round-trip検証
+npm run check-variables         # ↑と同じファイル（scripts/check-mcreator-features.mjs）を実行するエイリアス
 ```
 
-`.github/workflows/ci.yml` が `push`/`pull_request` のたびに上記5コマンド全てとPDFレイアウト検証を自動実行します
+`.github/workflows/ci.yml` が `push`/`pull_request` のたびに `check-mcreator-features`（`check-variables` と同一）
+を含む上記6コマンド全てとPDFレイアウト検証を自動実行します
 （`.github/workflows/deploy.yml` はビルド＋GitHub Pagesデプロイ専任で、テストは実行しません）。
 
 ## GitHub Pages への公開手順
@@ -69,6 +72,7 @@ npm run check-compat  # MCreator 2025.1互換性チェック（安全ガード�
   "procedure_name": "my_proc",     // 必須
   "description": "説明",            // 任意
   "trigger": "onRightClickedOnBlock", // 任意。string | null | {type, dependencies?} を受理（後述）
+  "variables": [ /* 任意。カスタム変数宣言 {name, type, scope}[]（後述「変数」節） */ ],
   "blocks": [ /* BlockNode[]（ネスト形式・フラットなグラフ形式・混在のいずれも可） */ ]
 }
 ```
@@ -180,6 +184,165 @@ Blockly側のミューテーター機能で動的に追加される入力/フィ
 `domToMutation`/`mutationToDom` を独自に実装することでこれを修正しています。MCreator実際の内部レイアウトに
 一致する保証はなく（データが無いため）、「引数が消えず見える」ことを目標にしたレンダリング上の近似です。
 
+## 変数（カスタム変数）
+
+MCreator 2025.1のカスタム変数（get/set、9型×6スコープ）に対応しています。
+
+`variables_get_<型>`/`variables_set_<型>` はカスタム変数の型ごとに**MCreator側がワークスペースの変数定義から
+動的生成する**ブロックで、`blocks_full.json`/`blocks_render.json`（516ブロックの静的カタログ）には一切含まれません
+（`net.mcreator.blockly.java.blocks.GetVariableBlock`/`SetVariableBlock` がJava側で実行時にBlockly定義を組み立てる
+ため、静的な `procedures/*.json` 抽出には現れません）。この一覧・field名・XML形式は**すべてMCreator 2025.1本体の
+実データ・実コードから確認**したものです（推測ではありません）。詳しい確認手順は下記「実データの確認方法」を
+参照してください。
+
+### 対応型（9種）
+
+| type（内部id） | Blockly型（output/check） | 色相 |
+|---|---|---|
+| `number` | Number | 230 |
+| `logic` | Boolean | 210 |
+| `string` | String | 160 |
+| `itemstack` | MCItem | 350 |
+| `blockstate` | MCItemBlock | 60 |
+| `entity` | Entity | 195 |
+| `direction` | Direction | 20 |
+| `damagesource` | DamageSource | 320 |
+| `actionresulttype` | ActionResultType | 90 |
+
+型ごとの色・Blockly型は `core/variables/<type>.json`（`blocklyVariableType`/`color`）から抽出しています
+（`public/reference/variable_types.json`。抽出手順は `tools/extract_mcreator_metadata.py`）。
+
+### 対応スコープ（6種）
+
+`local` / `GLOBAL_SESSION` / `GLOBAL_MAP` / `GLOBAL_WORLD` / `PLAYER_LIFETIME` / `PLAYER_PERSISTENT`
+（`net.mcreator.workspace.elements.VariableType$Scope` の実際の6列挙値）。
+
+### トップレベル `variables` 配列
+
+```jsonc
+{
+  "format_version": 1,
+  "variables": [
+    { "name": "mode", "type": "number", "scope": "PLAYER_PERSISTENT", "initial_value": 0 }
+  ],
+  "blocks": [ /* ... */ ]
+}
+```
+
+- `name`（必須・文字列）/ `type`（必須。上記9種のいずれか）/ `scope`（必須。上記6種のいずれか）
+- `initial_value`（任意）: MCreator実データの `VariableElement.value` に相当する概念です。ただし
+  BlocklyのXML `<variable type="..." id="...">` 宣言には初期値を持つ枠が無く、この値はMCreator側のJavaコード
+  生成時にのみ参照されるプロジェクト設定です。本アプリはコード生成を行わないため、**`initial_value` は描画に
+  一切影響しません**。`number`/`logic`/`string` の3型のみ値の型（number/boolean/string）を簡易チェックし、
+  不一致は警告W012（描画は継続）。他の6型（Entity等の複合型）はJSON側に妥当なプリミティブ表現が無いため型検査
+  対象外です
+- **名前空間**: `local` 変数と `GLOBAL_*`/`PLAYER_*` 変数は完全に別の名前空間です（MCreatorの実装上、
+  `local:` 参照はこのプロシージャ自身のXML内の宣言から、`global:` 参照はプロジェクト全体の変数プールから、と
+  別々の経路で解決されるため）。そのため同名の `local` 変数と `GLOBAL_MAP` 変数を同時に宣言してもエラーには
+  なりません。逆に、`GLOBAL_SESSION`/`GLOBAL_MAP`/`GLOBAL_WORLD`/`PLAYER_LIFETIME`/`PLAYER_PERSISTENT` の
+  5スコープは実装上ひとつの共有プールなので、この5つの間で同名を宣言すると重複エラー（E015）になります
+  （scopeが違っていても、です）
+- 同一名前空間内で同名を複数宣言 → **E015**
+- `type`/`scope` が上記一覧に無い値 → **E014**
+
+### ブロックノード（get/set）
+
+get/setとも**通常のBlockNode形式をそのまま使います**（変数専用の別JSON構造は導入していません）。
+
+```jsonc
+// 取得（value）
+{ "node_id": "n1", "block_id": "variables_get_number", "fields": { "VAR": "mode" } }
+
+// 設定（statement）
+{
+  "node_id": "n2",
+  "block_id": "variables_set_number",
+  "fields": { "VAR": "mode" },
+  "value_inputs": { "VAL": { "node_id": "n3", "block_id": "math_number", "fields": { "NUM": "1" } } }
+}
+```
+
+- block_id: `variables_get_<type>` / `variables_set_<type>`（`<type>` は上表の内部id）
+- `fields.VAR`: 参照する変数名（`variables` 配列で宣言した `name` をそのまま書く。スコープ接頭辞は不要 —
+  本アプリが `variables` 配列を見て `local:`/`global:` を自動付与します。同名がlocal/global両方にある場合は
+  **localを優先**します）
+- setは `value_inputs.VAL` に代入する値ブロックを接続（checkは変数の型に一致する必要があり、不一致はE006）
+- get/setとも `value_inputs` に他のキーは使えません（**`VAR`/`VAL`/`entity`（後述）以外はE004/E005**）
+
+### PLAYER_LIFETIME / PLAYER_PERSISTENT の Entity 入力
+
+PLAYER系スコープの変数は、get/setとも**どのプレイヤーの値かを指定する `value_inputs.entity`（check: Entity）**
+を追加で持てます（MCreator実データ: `mcreator_extensions.js` の `variable_entity_input` mutatorが
+`<mutation is_player_var="true" ...>` のときにこの入力を追加する実装と一致させています）。
+
+```jsonc
+{
+  "node_id": "n1",
+  "block_id": "variables_get_number",
+  "fields": { "VAR": "mode" },
+  "value_inputs": { "entity": { "node_id": "e1", "block_id": "entity_from_deps" } }
+}
+```
+
+- `local`/`GLOBAL_*` スコープの変数には `entity` 入力は生成されません（指定しても構いませんが、
+  該当スコープではMCreator実装上不要な入力です）
+- PLAYER系スコープなのに `entity` を指定しなかった場合 → **警告W010**（エラーにはしません。
+  Blockly上は空の入力スロットとして正常に読み込まれるため）
+- `entity` に Entity 型でないブロックを接続した場合 → 既存の型不一致検証を再利用し **E006**
+  （新規コードは追加していません）
+
+### 実データの確認方法（推測禁止の遵守について）
+
+block_id・field名（`VAR`/`VAL`/`entity`）・XML形式（`<field name="VAR">local:name</field>` の
+コロン区切り接頭辞・`<mutation is_player_var="..." has_entity="...">`）は、以下の実データ・実コードから
+直接確認しました。詳細なコメントは `src/lib/validate.ts`（`ValidationExtras`のdocコメント）と
+`tools/extract_mcreator_metadata.py` に記載しています。
+
+1. `<MCreator.app>/Contents/plugins/mcreator-core.zip` 内 `variables/*.json`（9型の色・Blockly型）
+2. `<MCreator.app>/Contents/lib/mcreator.jar` 内 `net.mcreator.blockly.java.blocks.GetVariableBlock`/
+   `SetVariableBlock`/`net.mcreator.blockly.java.BlocklyVariables`/`net.mcreator.workspace.elements.VariableType`
+   （`javap -v` でバイトコードの定数プール文字列・正規表現パターンを確認。block_id接頭辞・`VAR`フィールド名・
+   `local:`/`global:` 接頭辞・6スコープの列挙値・ローカル変数のXML宣言位置（`<variables><variable .../></variables>`）
+   はここから）
+3. `mcreator-core.zip` 内 `blockly/js/mcreator_extensions.js` の `variable_entity_input` registerMutator
+   （PLAYER系の `entity` 入力追加ロジック）
+
+## トリガーカタログ
+
+`public/reference/triggers.json` に、MCreator 2025.1の実トリガー定義（`core/triggers/*.json`、63件）から
+抽出したカタログを同梱しています。各エントリは `id`（トリガー名）・`name_ja`/`name_en`（表示名）・
+`dependencies_provided`（このトリガーが自動提供する依存関係名の配列）・`cancelable`・`side` を持ちます。
+
+`trigger` に上記63件のいずれかのIDを指定すると、そのトリガーが実際に提供する依存関係がW001の判定へ**自動的に
+加算**されます（既存の `trigger: {type, dependencies}` による明示指定は引き続き有効で、カタログの自動補完分に
+**上乗せ**されます。後方互換）。未知のトリガー名は従来どおり自動補完なしで扱われます。
+
+```jsonc
+{ "trigger": "player_right_click_entity" }
+// -> dependencies_provided に基づき、entity/world/x/y/z 等が自動的に「提供済み」として扱われる
+```
+
+トリガー名そのものの実在検証（未知のトリガー名をエラーにする等）は行っていません
+（MCreatorはカスタムMOD側でも独自のグローバルトリガーを追加できるため、63件のカタログはあくまで
+「MCreator本体が標準提供する既知のトリガー」の一覧であり、閉じた集合として強制すべきではないためです）。
+
+## Iterator（イテレータ）スコープ検証
+
+`entity_iterator`/`direction_iterator`/`itemstack_iterator` は、対応する `*_foreach` 系ブロックの
+特定のstatement_inputs内（例: `world_entity_inrange_foreach` の `foreach`）でのみ有効な値ブロックです。
+これはMCreator実データ（`core/procedures/*.json` の `mcreator.statements[].provides`）から抽出した対応表
+（`public/reference/iterator_providers.json`、13件）に基づき検証します。
+
+- 対応するスコープの外（あるいは無関係な `*_foreach` の内側）で使われた場合 → **E017**
+- ネストしていても、正しい `*_foreach` の子孫であれば有効です（`controls_if` を挟んでも可）
+
+```jsonc
+// OK: world_entity_inrange_foreach の foreach 内
+{ "block_id": "world_entity_inrange_foreach", "statement_inputs": { "foreach": [
+  { "block_id": "entity_despawn", "value_inputs": { "entity": { "block_id": "entity_iterator" } } }
+] } }
+```
+
 ## エラーコード表
 
 | code | 種別 | 内容 |
@@ -196,7 +359,12 @@ Blockly側のミューテーター機能で動的に追加される入力/フィ
 | E010 | error | `value_inputs`/`statement_inputs`/`fields` のキー名に `__proto__`/`constructor`/`prototype` 等の予約済みキー名が使われている |
 | E011 | error | 入力が大きすぎる（入力テキスト長 or `blocks` 配列の要素数が上限を超過） |
 | E012 | error | value_inputs/statement_inputs/next の入れ子が深すぎる（再帰上限超過） |
-| W001 | warn | 使用ブロックの dependencies 集約表示（trigger オブジェクト形式の提供分を差し引いた差分のみ） |
+| E013 | error | カスタム変数の未定義参照（`fields.VAR` が `variables` 配列に無い名前を指す） |
+| E014 | error | `variables` 配列の宣言自体が不正（未知の `type`/`scope` 値） |
+| E015 | error | 同一名前空間内（local同士、またはGLOBAL_\*/PLAYER_\*同士）での変数名重複 |
+| E016 | error | `variables_get_<型>`/`variables_set_<型>` のブロックの型と、変数の宣言型が不一致 |
+| E017 | error | `entity_iterator`/`direction_iterator`/`itemstack_iterator` が対応する`*_foreach`ブロックのスコープ外で使われている |
+| W001 | warn | 使用ブロックの dependencies 集約表示（trigger オブジェクト形式・トリガーカタログの提供分を差し引いた差分のみ） |
 | W002 | warn | field_dropdown の値が機械値・表示ラベルのいずれにも一致しない |
 | W003 | warn | mcreator_version 不一致 |
 | W004 | warn | メイン列に接続されていない、独立したステートメント列 |
@@ -205,11 +373,14 @@ Blockly側のミューテーター機能で動的に追加される入力/フィ
 | W007 | warn | type/parent/previous/children が解決結果と矛盾している |
 | W008 | warn | call_procedure の動的引数 `argN`/`nameN` の番号が0始まりの連番になっていない |
 | W009 | warn | `field_number` 型のfieldの値が数値として解釈できない |
+| W010 | warn | PLAYER系スコープの変数参照に `value_inputs.entity`（対象プレイヤー）が指定されていない |
+| W011 | warn | ステートメント入力を持つブロックの、全てのスロットが完全に空（未完成の可能性） |
+| W012 | warn | `variables` 宣言の `initial_value` が宣言 `type` と噛み合わない単純型不一致（描画には無関係） |
 | I001 | info | 本当に未知のキー（文書全体で1件に集約） |
 | I002 | info | blocks_full.jsonで required_apis を持つブロックが使われている（ノード単位） |
 | I003 | info | プロシージャ全体で必要な追加APIの集約一覧（`required_apis` を持つ全ノードの和集合） |
 
-E001〜E012 が1件でもあれば描画を中止し、エラー一覧のみを表示します。warn/infoは描画を継続します。
+E001〜E017 が1件でもあれば描画を中止し、エラー一覧のみを表示します。warn/infoは描画を継続します。
 
 なお `E999` はSPEC.mdが定義する表には無い、本アプリ独自の安全網用コードです。検証自体は通過したにも関わらず
 Blockly側が接続を拒否した（読み込み後のブロック数が期待値と不一致）場合や、描画・エクスポート処理自体が
@@ -281,64 +452,66 @@ Blockly側が接続を拒否した（読み込み後のブロック数が期待�
 - `required_apis` を持つブロックはノード単位（I002）・プロシージャ全体の集約（I003）の両方で表示します
   （ただし現行の `blocks_full.json` には `required_apis` を持つブロックが1件も存在せず、実データでは
   発火しません — 発火条件自体は合成データで検証済みです）
+- **カスタム変数（get/set、9型×6スコープ）・トリガーカタログ（63件の依存関係自動補完）・iteratorスコープ検証**
+  に対応しています。詳細は上記「変数（カスタム変数）」「トリガーカタログ」「Iterator（イテレータ）スコープ検証」
+  の各節を参照してください。block_id・field名・XML形式はいずれもMCreator 2025.1本体の実データ・実コード
+  （`mcreator-core.zip`・`mcreator.jar`）から確認したものです
 
-### 未対応：根拠データ不足
+### 未対応：根拠データ不足・対象外
 
-以下は明示的に調査した上で、`public/reference/`（`FULL-REFERENCE.md`・`blocks_full.json`・`blocks_render.json`、
-MCreator 2025.1の実データから抽出された計516ブロックの完全カタログ）のどこにも根拠データが存在しないため、
-**推測実装をせず**未対応としているものです。もしMCreator側の実データ（実際のblock_id・field名・input名・
-XML構造）を追加提供いただければ、その範囲で対応可能です。
-
-- **カスタム変数（get/set、9型×6スコープ）**: `FULL-REFERENCE.md` はカテゴリとして
-  `variables_get_<型>`/`variables_set_<型>` という命名パターンと型/スコープの一覧を説明していますが、
-  これは「ワークスペースの変数定義に応じてMCreatorが動的生成する」ブロックのカテゴリ説明であり、
-  具体的なBlockly block_id・field名（変数名をどのキーで持つか）・スコープの表現方法・PLAYER系スコープの
-  Entity入力のinput名は一切記載がありません。`blocks_full.json`/`blocks_render.json` にも
-  `variables_get_*`/`variables_set_*` に類するエントリは1件も存在しません（516ブロック全件を機械的に
-  確認済み）。そのためこのブロックIDをJSONで指定した場合は未知のblock_idとして安全にE003になります
-  （黙って誤描画するよりも安全側）
-- **call_procedure の戻り値**: `blocks_full.json`/`FULL-REFERENCE.md` のいずれにも「プロシージャ呼び出しの
-  戻り値を受け取る」ための値ブロックは存在しません。MCreator 2025.1のプロシージャは（このデータで見る限り）
-  戻り値を持たない手続き（void）として扱われています
-- **trigger の実在チェック・トリガー別dependencies**: `event_trigger` の実際のフィールドはセレクタ
-  （`field_data_list_selector`, `datalist: "global_triggers"`）であり、`blocks_render.json`/`blocks_full.json`
-  のどちらにも実際の `global_triggers` の選択肢一覧や、トリガー種別ごとに供給されるdependenciesの対応表は
-  含まれていません。そのため `trigger` の文字列値そのものの実在検証はできず、トリガーが提供するdeps情報は
-  引き続き入力JSON側の `trigger: {type, dependencies}` で明示してもらう方式のままです
-- **iteratorスコープ外使用の検出**: `entity_iterator`/`direction_iterator`/`itemstack_iterator` は
-  `blocks_full.json` 上ただの値ブロック（`shape: "value"`）で、`entity_iterator` に至っては
-  `dependencies` すら空です。「どのステートメントブロックのDO0内でだけ有効か」を示すデータが
-  存在しないため、スコープ外使用を検出する仕組みを実装する根拠がありません
+- **call_procedure の戻り値**: `blocks_full.json`/`FULL-REFERENCE.md`/`mcreator-core.zip` のいずれにも
+  「プロシージャ呼び出しの戻り値を受け取る」ための値ブロックは見つかりませんでした。MCreator 2025.1の
+  プロシージャは戻り値を持たない手続き（void）として扱われています（根拠データ不足というより、この機能自体が
+  存在しないと考えられます）
+- **トリガー名そのものの実在検証**: `trigger.json` の63件は「MCreator本体が標準提供する既知のグローバル
+  トリガー」の一覧です（`core/triggers/*.json` から抽出）。MCreatorはカスタムMOD側で独自のグローバルトリガーを
+  追加できるため、この63件を閉じた集合として「未知のトリガー名はエラー」のように強制することはしていません
+  （未知の名前は単に依存関係の自動補完が働かないだけで、明示的な `trigger: {type, dependencies}` は引き続き
+  使えます）
+- **`logic_ternary_op` の見た目**: MCreator実データ（`mcreator_blocks.js`）ではBlockly組み込みの
+  `logic_ternary` extension（三項演算子らしいレイアウト調整）を適用していますが、この抽出パイプラインの
+  正規表現ベースの解析は `Blockly.Extensions.apply(...)` 呼び出しを認識しないため、`blocks_full.json`/
+  `blocks_render.json` にこの情報は含まれていません。value_inputs（condition/THEN/ELSE）自体は正しく
+  捕捉されているため**接続・データの欠落はありません**。純粋に見た目（自動インライン配置）が本家と多少
+  異なる可能性がある、という軽微な既知差分です
 
 ## ディレクトリ構成（抜粋）
 
 ```
 src/
   lib/            # 参照データ型・入力型・messages.ts・guards.ts（安全ガード）・
-                  # normalizeInput.ts（構造正規化）・
-                  # validate.ts（blocks_full.jsonに基づく厳格検証）・純粋関数、Node上でテスト可能
-  blockly/        # registerBlocks（call_procedure引数mutator含む） / fields / toXml / workspace / export / clipboardExport
+                  # normalizeInput.ts（構造正規化。variables配列の構造検証・namespace対応の重複判定も含む）・
+                  # validate.ts（blocks_full.jsonに基づく厳格検証 + カスタム変数/trigger/iteratorの動的検証）・
+                  # 純粋関数、Node上でテスト可能
+  blockly/        # registerBlocks（call_procedure引数mutator・カスタム変数18ブロックの動的登録を含む） /
+                  # fields / toXml（<variables>宣言の生成を含む） / workspace / export / clipboardExport
   components/     # Header / ValidationList / ZoomControls / CopyButton / StatusBar / Toast
-  data/           # ReferenceDataContext（参照JSONの起動時1回フェッチ）
+  data/           # ReferenceDataContext（参照JSON5種の起動時1回フェッチ）
   App.tsx / main.tsx / index.css
 public/
-  reference/      # blocks_full.json / blocks_render.json / FULL-REFERENCE.md（同梱・変更禁止）
+  reference/      # blocks_full.json / blocks_render.json / FULL-REFERENCE.md（同梱・変更禁止）に加え、
+                  # variable_types.json / triggers.json / iterator_providers.json（本セッションで追加。
+                  # tools/extract_mcreator_metadata.py の出力、同じくMCreator実データ由来）
   res/            # field_image 用画像（同梱・変更禁止）
-  samples/        # サンプル4種（UIからは参照しなくなったが、check-samples.mjs/check-graph.mjs による
-                  # 機械的な検証・CI用に残置）
+  samples/        # サンプル（UIからは参照しなくなったが、check-samples.mjs等による機械的な検証・CI用に残置）
+tools/
+  extract_mcreator_metadata.py  # MCreator.appのplugins/{mcreator-core,mcreator-localization}.zipから
+                                 # variable_types.json/triggers.json/iterator_providers.jsonを再生成するスクリプト
 scripts/
   check-samples.mjs
   check-broken.mjs
-  check-graph.mjs   # フラットなグラフ形式の正規化テスト
-  check-compat.mjs  # MCreator 2025.1互換性テスト（安全ガード・call_procedure引数mutator・捕獲/再召喚サンプル等）
+  check-graph.mjs              # フラットなグラフ形式の正規化テスト
+  check-compat.mjs             # MCreator 2025.1互換性テスト（安全ガード・call_procedure引数mutator等）
+  check-mcreator-features.mjs  # カスタム変数（9型×6スコープ）・trigger自動補完・iteratorスコープ検証・
+                                # サンプルのround-trip検証（npm run check-variables からも同じファイルを実行）
 .github/workflows/
-  ci.yml            # push/PR毎にtypecheck + check-*系4本 + check-pdf-layoutを実行
+  ci.yml            # push/PR毎にtypecheck + check-*系5本 + check-pdf-layoutを実行
   deploy.yml        # mainへのpush時にビルド＋GitHub Pagesデプロイ（テストは実行しない）
 ```
 
 `public/samples/` はUI上の「サンプル」選択機能としては提供していません（UIの簡素化のため削除）。
-`npm run check-samples` / `npm run check-graph` から引き続き参照される、検証ロジックの回帰テスト用
-データとして残しています。
+`npm run check-samples` / `npm run check-graph` / `npm run check-mcreator-features` から引き続き参照される、
+検証ロジックの回帰テスト用データとして残しています（カスタム変数サンプル5種を含む）。
 
 ### 正規化と検証の分離（`src/lib/`）
 

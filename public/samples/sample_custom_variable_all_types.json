@@ -1,0 +1,81 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "custom_variable_all_types_demo",
+  "description": "MCreator 2025.1のカスタム変数9型すべてについて、local scopeでset→getを1回ずつ行う網羅例",
+  "variables": [
+    { "name": "vNumber", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "vLogic", "type": "logic", "scope": "local", "initial_value": false },
+    { "name": "vString", "type": "string", "scope": "local", "initial_value": "" },
+    { "name": "vItemstack", "type": "itemstack", "scope": "local" },
+    { "name": "vBlockstate", "type": "blockstate", "scope": "local" },
+    { "name": "vEntity", "type": "entity", "scope": "local" },
+    { "name": "vDirection", "type": "direction", "scope": "local" },
+    { "name": "vDamagesource", "type": "damagesource", "scope": "local" },
+    { "name": "vActionresulttype", "type": "actionresulttype", "scope": "local" }
+  ],
+  "blocks": [
+    {
+      "node_id": "set_number",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "vNumber" },
+      "value_inputs": { "VAL": { "node_id": "get_number", "block_id": "variables_get_number", "fields": { "VAR": "vNumber" } } },
+      "next": "set_logic"
+    },
+    {
+      "node_id": "set_logic",
+      "block_id": "variables_set_logic",
+      "fields": { "VAR": "vLogic" },
+      "value_inputs": { "VAL": { "node_id": "get_logic", "block_id": "variables_get_logic", "fields": { "VAR": "vLogic" } } },
+      "next": "set_string"
+    },
+    {
+      "node_id": "set_string",
+      "block_id": "variables_set_string",
+      "fields": { "VAR": "vString" },
+      "value_inputs": { "VAL": { "node_id": "get_string", "block_id": "variables_get_string", "fields": { "VAR": "vString" } } },
+      "next": "set_itemstack"
+    },
+    {
+      "node_id": "set_itemstack",
+      "block_id": "variables_set_itemstack",
+      "fields": { "VAR": "vItemstack" },
+      "value_inputs": { "VAL": { "node_id": "get_itemstack", "block_id": "variables_get_itemstack", "fields": { "VAR": "vItemstack" } } },
+      "next": "set_blockstate"
+    },
+    {
+      "node_id": "set_blockstate",
+      "block_id": "variables_set_blockstate",
+      "fields": { "VAR": "vBlockstate" },
+      "value_inputs": { "VAL": { "node_id": "get_blockstate", "block_id": "variables_get_blockstate", "fields": { "VAR": "vBlockstate" } } },
+      "next": "set_entity"
+    },
+    {
+      "node_id": "set_entity",
+      "block_id": "variables_set_entity",
+      "fields": { "VAR": "vEntity" },
+      "value_inputs": { "VAL": { "node_id": "get_entity", "block_id": "variables_get_entity", "fields": { "VAR": "vEntity" } } },
+      "next": "set_direction"
+    },
+    {
+      "node_id": "set_direction",
+      "block_id": "variables_set_direction",
+      "fields": { "VAR": "vDirection" },
+      "value_inputs": { "VAL": { "node_id": "get_direction", "block_id": "variables_get_direction", "fields": { "VAR": "vDirection" } } },
+      "next": "set_damagesource"
+    },
+    {
+      "node_id": "set_damagesource",
+      "block_id": "variables_set_damagesource",
+      "fields": { "VAR": "vDamagesource" },
+      "value_inputs": { "VAL": { "node_id": "get_damagesource", "block_id": "variables_get_damagesource", "fields": { "VAR": "vDamagesource" } } },
+      "next": "set_actionresulttype"
+    },
+    {
+      "node_id": "set_actionresulttype",
+      "block_id": "variables_set_actionresulttype",
+      "fields": { "VAR": "vActionresulttype" },
+      "value_inputs": { "VAL": { "node_id": "get_actionresulttype", "block_id": "variables_get_actionresulttype", "fields": { "VAR": "vActionresulttype" } } }
+    }
+  ]
+}

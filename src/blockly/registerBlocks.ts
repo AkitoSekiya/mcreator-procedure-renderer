@@ -4,7 +4,7 @@
  * (imported once in main.tsx) and need no registration here.
  */
 import * as Blockly from 'blockly/core';
-import type { RenderReferenceData, BlocklyJsonBlockDef, BlocklyJsonArg } from '../lib/referenceTypes';
+import type { RenderReferenceData, BlocklyJsonBlockDef, BlocklyJsonArg, VariableTypesData } from '../lib/referenceTypes';
 import { registerCustomFields } from './fields';
 
 let registered = false;
@@ -97,9 +97,105 @@ function applyCallProcedureArgsMutator(): void {
   };
 }
 
+/**
+ * variables_get_<type>/variables_set_<type> (custom variable get/set blocks)
+ * are, in real MCreator, constructed entirely in Java at runtime
+ * (net.mcreator.blockly.java.blocks.{Get,Set}VariableBlock) — grepping for
+ * "variables_get_"/"variables_set_" across every JS/JSON file in
+ * mcreator-core.zip returns nothing, so unlike every other block here there
+ * is no static template to load at all; this function builds the Blockly
+ * JSON definitions itself from variable_types.json (see src/lib/
+ * referenceTypes.ts's VariableTypeDef and tools/extract_mcreator_
+ * metadata.py). The block shape (block_id, the single "VAR" field, "VAL"
+ * set-value input, and the player-scope "entity" mutator) was reverse
+ * engineered via `javap -v` on GetVariableBlock/SetVariableBlock and
+ * BlocklyVariables inside mcreator.jar, and the entity-input mutator below
+ * mirrors mcreator_extensions.js's real 'variable_entity_input'
+ * registerMutator — see src/lib/validate.ts's ValidationExtras doc comment
+ * for the full paper trail. What's *not* claimed to be byte-exact is the
+ * on-block label text layout (message0/args0 ordering) — the descriptive
+ * labels themselves (label_ja_get/label_ja_set) are MCreator's own real
+ * localized strings, just arranged into a message0 template rather than
+ * lifted from an actual Java-constructed Blockly definition, since none
+ * exists to lift from.
+ */
+function buildVariableBlockDefs(variableTypes: VariableTypesData): BlocklyJsonBlockDef[] {
+  const defs: BlocklyJsonBlockDef[] = [];
+  for (const t of variableTypes.types) {
+    defs.push({
+      type: `variables_get_${t.id}`,
+      message0: '%1 %2',
+      args0: [
+        { type: 'field_label', text: t.label_ja_get ?? t.label_en_get ?? `Get ${t.id}` },
+        { type: variableTypes.field_name === 'VAR' ? 'field_data_list_selector' : 'field_input', name: variableTypes.field_name, datalist: 'variable' },
+      ],
+      output: t.blockly_type,
+      colour: t.colour_hue,
+      inputsInline: true,
+    });
+    defs.push({
+      type: `variables_set_${t.id}`,
+      message0: '%1 %2 = %3',
+      args0: [
+        { type: 'field_label', text: t.label_ja_set ?? t.label_en_set ?? `Set ${t.id}` },
+        { type: 'field_data_list_selector', name: variableTypes.field_name, datalist: 'variable' },
+        { type: 'input_value', name: variableTypes.set_value_input_name, check: t.blockly_type },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      colour: t.colour_hue,
+      inputsInline: true,
+    });
+  }
+  return defs;
+}
+
+/**
+ * Adds/removes the player-scope "entity" value input on a variable get/set
+ * block, from `<mutation is_player_var="true|false" has_entity="...">` —
+ * faithfully mirroring mcreator_extensions.js's real 'variable_entity_input'
+ * registerMutator (see buildVariableBlockDefs's doc comment). Only the
+ * load-time half (domToMutation) is implemented — this app only ever loads
+ * generated XML into a workspace, never serializes edits back out, so
+ * mutationToDom is a straightforward inverse rather than a faithful port of
+ * the original's `javabridge.isPlayerVariable` Java callback (which doesn't
+ * exist in this browser-only app; toXml.ts already decides is_player_var
+ * from the document's own `variables` declarations before this ever runs).
+ */
+function applyVariableEntityMutator(blockType: string, entityInputName: string): void {
+  const def = Blockly.Blocks[blockType] as
+    | {
+        domToMutation?: (this: Blockly.Block, xml: Element) => void;
+        mutationToDom?: (this: Blockly.Block) => Element;
+      }
+    | undefined;
+  if (!def) return;
+
+  def.domToMutation = function (this: Blockly.Block, xmlElement: Element): void {
+    const isPlayerVar = xmlElement.getAttribute('is_player_var') === 'true';
+    const hasEntity = this.getInput(entityInputName) !== null;
+    if (isPlayerVar && !hasEntity) {
+      this.appendValueInput(entityInputName)
+        .setCheck('Entity')
+        .appendField(new Blockly.FieldLabel('対象のエンティティ:'));
+    } else if (!isPlayerVar && hasEntity) {
+      this.removeInput(entityInputName);
+    }
+  };
+
+  def.mutationToDom = function (this: Blockly.Block): Element {
+    const container = Blockly.utils.xml.createElement('mutation');
+    container.setAttribute('is_player_var', this.getInput(entityInputName) !== null ? 'true' : 'false');
+    container.setAttribute('has_entity', this.getInputTargetBlock(entityInputName) !== null ? 'true' : 'false');
+    return container;
+  };
+}
+
 /** Registers all blocks_render.json definitions plus the custom field types
- * they rely on. Idempotent — safe to call more than once. */
-export function registerBlocks(render: RenderReferenceData, baseUrl: string): void {
+ * they rely on, and (when variable_types.json was fetched) the 18 dynamic
+ * custom-variable get/set block types. Idempotent — safe to call more than
+ * once. */
+export function registerBlocks(render: RenderReferenceData, baseUrl: string, variableTypes?: VariableTypesData): void {
   if (registered) return;
   registered = true;
 
@@ -113,4 +209,12 @@ export function registerBlocks(render: RenderReferenceData, baseUrl: string): vo
 
   applyHatFallback('event_trigger');
   applyCallProcedureArgsMutator();
+
+  if (variableTypes) {
+    Blockly.defineBlocksWithJsonArray(buildVariableBlockDefs(variableTypes));
+    for (const t of variableTypes.types) {
+      applyVariableEntityMutator(`variables_get_${t.id}`, variableTypes.player_scope_entity_input_name);
+      applyVariableEntityMutator(`variables_set_${t.id}`, variableTypes.player_scope_entity_input_name);
+    }
+  }
 }

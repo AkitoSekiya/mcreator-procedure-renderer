@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { FullReferenceData, RenderReferenceData } from '../lib/referenceTypes';
+import type { FullReferenceData, RenderReferenceData, VariableTypesData, TriggersData, IteratorProvidersData } from '../lib/referenceTypes';
 import { buildDropdownOptionsMap, type DropdownOptionsMap } from '../lib/dropdownOptions';
 import { registerBlocks } from '../blockly/registerBlocks';
+import type { ValidationExtras } from '../lib/validate';
 
 export interface ReferenceData {
   full: FullReferenceData;
   render: RenderReferenceData;
   dropdownOptions: DropdownOptionsMap;
+  /** Passed straight through to validateProcedureText's 4th argument. */
+  extras: ValidationExtras;
 }
 
 export type ReferenceLoadState =
@@ -36,10 +39,27 @@ function loadReferenceData(): Promise<ReferenceData> {
         if (!r.ok) throw new Error(`blocks_render.json の取得に失敗しました (HTTP ${r.status})`);
         return r.json() as Promise<RenderReferenceData>;
       }),
-    ]).then(([full, render]) => {
-      registerBlocks(render, base);
+      // Supplement blocks_full.json/blocks_render.json (516 static blocks
+      // only) with data for what MCreator 2025.1 constructs dynamically:
+      // custom variables, the trigger catalog, iterator scoping — see
+      // src/lib/validate.ts's ValidationExtras / tools/extract_mcreator_
+      // metadata.py.
+      fetch(`${base}reference/variable_types.json`).then((r) => {
+        if (!r.ok) throw new Error(`variable_types.json の取得に失敗しました (HTTP ${r.status})`);
+        return r.json() as Promise<VariableTypesData>;
+      }),
+      fetch(`${base}reference/triggers.json`).then((r) => {
+        if (!r.ok) throw new Error(`triggers.json の取得に失敗しました (HTTP ${r.status})`);
+        return r.json() as Promise<TriggersData>;
+      }),
+      fetch(`${base}reference/iterator_providers.json`).then((r) => {
+        if (!r.ok) throw new Error(`iterator_providers.json の取得に失敗しました (HTTP ${r.status})`);
+        return r.json() as Promise<IteratorProvidersData>;
+      }),
+    ]).then(([full, render, variableTypes, triggers, iteratorProviders]) => {
+      registerBlocks(render, base, variableTypes);
       const dropdownOptions = buildDropdownOptionsMap(render);
-      return { full, render, dropdownOptions };
+      return { full, render, dropdownOptions, extras: { variableTypes, triggers, iteratorProviders } };
     });
   }
   return loadPromise;

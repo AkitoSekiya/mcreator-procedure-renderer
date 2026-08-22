@@ -1,0 +1,98 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "custom_variable_local_demo",
+  "description": "local scopeのNumber/Logic/String変数について、set→get・IF分岐・数式（+1）を確認する例",
+  "variables": [
+    { "name": "n", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "flag", "type": "logic", "scope": "local", "initial_value": false },
+    { "name": "label", "type": "string", "scope": "local", "initial_value": "" }
+  ],
+  "blocks": [
+    {
+      "node_id": "set_n",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "n" },
+      "value_inputs": { "VAL": { "node_id": "five", "block_id": "math_number", "fields": { "NUM": "5" } } },
+      "next": "set_n_plus_one"
+    },
+    {
+      "node_id": "set_n_plus_one",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "n" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "add",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "get_n", "block_id": "variables_get_number", "fields": { "VAR": "n" } },
+            "B": { "node_id": "one", "block_id": "math_number", "fields": { "NUM": "1" } }
+          }
+        }
+      },
+      "next": "if_n"
+    },
+    {
+      "node_id": "if_n",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp",
+          "block_id": "math_binary_ops",
+          "fields": { "OP": "GTE" },
+          "value_inputs": {
+            "A": { "node_id": "get_n2", "block_id": "variables_get_number", "fields": { "VAR": "n" } },
+            "B": { "node_id": "six", "block_id": "math_number", "fields": { "NUM": "6" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["set_flag_true"], "ELSE": ["set_flag_false"] },
+      "next": "set_label"
+    },
+    {
+      "node_id": "set_flag_true",
+      "block_id": "variables_set_logic",
+      "fields": { "VAR": "flag" },
+      "value_inputs": { "VAL": { "node_id": "t1", "block_id": "logic_boolean", "fields": { "BOOL": "TRUE" } } }
+    },
+    {
+      "node_id": "set_flag_false",
+      "block_id": "variables_set_logic",
+      "fields": { "VAR": "flag" },
+      "value_inputs": { "VAL": { "node_id": "f1", "block_id": "logic_boolean", "fields": { "BOOL": "FALSE" } } }
+    },
+    {
+      "node_id": "set_label",
+      "block_id": "variables_set_string",
+      "fields": { "VAR": "label" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "join",
+          "block_id": "text_join",
+          "value_inputs": {
+            "ADD0": { "node_id": "prefix", "block_id": "text", "fields": { "TEXT": "n=" } },
+            "ADD1": {
+              "node_id": "n_as_text",
+              "block_id": "text_format_number",
+              "value_inputs": {
+                "number": { "node_id": "get_n3", "block_id": "variables_get_number", "fields": { "VAR": "n" } },
+                "format": { "node_id": "fmt", "block_id": "text", "fields": { "TEXT": "0" } }
+              }
+            }
+          }
+        }
+      },
+      "next": "chat"
+    },
+    {
+      "node_id": "chat",
+      "block_id": "entity_send_chat",
+      "value_inputs": {
+        "text": { "node_id": "get_label", "block_id": "variables_get_string", "fields": { "VAR": "label" } },
+        "actbar": { "node_id": "get_flag", "block_id": "variables_get_logic", "fields": { "VAR": "flag" } },
+        "entity": { "node_id": "e1", "block_id": "entity_from_deps" }
+      }
+    }
+  ]
+}

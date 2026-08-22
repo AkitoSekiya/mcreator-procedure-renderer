@@ -46,7 +46,7 @@ function AppInner(): JSX.Element {
 
   const handleGenerate = useCallback(() => {
     if (refState.status !== 'ready') return;
-    const result = validateProcedureText(jsonText, refState.data.full, refState.data.dropdownOptions);
+    const result = validateProcedureText(jsonText, refState.data.full, refState.data.dropdownOptions, refState.data.extras);
     const ws = workspaceRef.current;
     if (!result.ok || !result.normalized) {
       setMessages(result.messages);

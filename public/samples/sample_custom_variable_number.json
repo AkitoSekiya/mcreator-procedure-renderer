@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "custom_variable_number_demo",
+  "description": "local scopeのNumber変数を宣言し、値を設定してから取得する最小例",
+  "variables": [{ "name": "counter", "type": "number", "scope": "local", "initial_value": 0 }],
+  "blocks": [
+    {
+      "node_id": "setter",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "counter" },
+      "value_inputs": { "VAL": { "node_id": "ten", "block_id": "math_number", "fields": { "NUM": "10" } } },
+      "next": "chat"
+    },
+    {
+      "node_id": "chat",
+      "block_id": "entity_send_chat",
+      "value_inputs": {
+        "text": {
+          "node_id": "num_text",
+          "block_id": "text_format_number",
+          "value_inputs": {
+            "number": { "node_id": "getter", "block_id": "variables_get_number", "fields": { "VAR": "counter" } },
+            "format": { "node_id": "fmt", "block_id": "text", "fields": { "TEXT": "0" } }
+          }
+        },
+        "actbar": { "node_id": "b1", "block_id": "logic_boolean", "fields": { "BOOL": "FALSE" } },
+        "entity": { "node_id": "e1", "block_id": "entity_from_deps" }
+      }
+    }
+  ]
+}

@@ -8,15 +8,17 @@
 //   registerBlocks.ts's applyCallProcedureArgsMutator), verified against a
 //   real (headless) Blockly workspace, not just the generated XML string.
 // - A "capture ball" style sample built entirely from real, catalogued
-//   blocks_full.json blocks (spawn/NBT/despawn/health/tame) — the closest
-//   faithful approximation possible without MCreator's custom-variable block
-//   data (see README's limitations section for why the literal scenario
-//   using a Local MCItem variable can't be represented: no block_id/field/
-//   input data exists anywhere in this project's reference corpus for
-//   variables_get_*/variables_set_* blocks).
+//   blocks_full.json blocks (spawn/NBT/despawn/health/tame) — written before
+//   this project had access to real MCreator source data for custom
+//   variables. Custom variable get/set support (variables_get_<type>/
+//   variables_set_<type>, all 9 types x 6 scopes) was added in a later pass
+//   once that data became available — see scripts/check-mcreator-
+//   features.mjs for its dedicated regression tests (including a version of
+//   this same capture/respawn scenario using a real Local MCItem variable).
 // - Documents (rather than "fixes", since there's nothing to fix) that an
-//   unknown custom-variable-style block_id safely surfaces as E003 instead
-//   of silently mis-rendering.
+//   unrecognized custom-variable-style block_id (not matching any of the 9
+//   known variable_types.json type ids) safely surfaces as E003 instead of
+//   silently mis-rendering.
 //
 // Run with: npm run check-compat
 import { readFileSync } from 'node:fs';
@@ -37,6 +39,10 @@ const root = path.resolve(__dirname, '..');
 const full = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_full.json'), 'utf-8'));
 const render = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_render.json'), 'utf-8'));
 const dropdownOptions = buildDropdownOptionsMap(render);
+const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
+const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
+const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders };
 
 let failures = 0;
 function fail(message) {
@@ -48,7 +54,7 @@ function ok(name, condition, detail) {
   if (!condition) fail(name);
 }
 function validate(doc) {
-  return validateProcedure(doc, full, dropdownOptions);
+  return validateProcedure(doc, full, dropdownOptions, extras);
 }
 
 function boolNode(id) {
@@ -287,19 +293,20 @@ function spawnNode(id, extra) {
   ok('I003: per-node I002 still present too (aggregate is additive, not a replacement)', result.messages.some((m) => m.code === 'I002'), JSON.stringify(result.messages));
 }
 
-// --- 7. Unknown custom-variable-style block_id -> safe E003 (documents
-// existing, correct behavior rather than "fixing" anything: since no real
-// data exists for variables_get_*/variables_set_* blocks anywhere in this
-// project's reference corpus, such a block_id is correctly treated as
-// unknown rather than guessed at or silently mis-rendered). ---
+// --- 7. Unrecognized custom-variable-style block_id -> safe E003 (a type
+// suffix not among variable_types.json's 9 known ids is correctly treated
+// as an unknown block_id rather than guessed at). Real variables_get_*/
+// variables_set_* support (now backed by actual MCreator 2025.1 data — see
+// tools/extract_mcreator_metadata.py) has its own dedicated regression
+// suite in scripts/check-mcreator-features.mjs. ---
 {
   const doc = {
     format_version: 1,
-    procedure_name: 'custom_variable_unknown_block_test',
-    blocks: [{ node_id: 'n1', block_id: 'variables_get_number', fields: {} }],
+    procedure_name: 'custom_variable_unknown_type_test',
+    blocks: [{ node_id: 'n1', block_id: 'variables_get_notarealtype', fields: { VAR: 'x' } }],
   };
   const result = validate(doc);
-  ok('Custom-variable-style block_id (variables_get_number) safely -> E003, not silently accepted', result.messages.some((m) => m.code === 'E003'), JSON.stringify(result.messages));
+  ok('Unrecognized variable-block type suffix safely -> E003, not silently accepted', result.messages.some((m) => m.code === 'E003'), JSON.stringify(result.messages));
 }
 
 if (failures > 0) {

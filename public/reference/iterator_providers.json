@@ -1,0 +1,84 @@
+{
+  "mcreator_version": "2025.1",
+  "note": "MCreator 2025.1のprocedures/*.jsonのmcreator.statements[].providesから抽出。あるblock_idのstatement_inputs[statement_name]の内部でのみprovides_nameが有効になる。値ブロック\"<X>_iterator\"はprovides_name\"<X>iterator\"を要求する(命名は機械的対応)。",
+  "providers": [
+    {
+      "block_id": "direction_foreach",
+      "statement_name": "foreach",
+      "provides_name": "directioniterator",
+      "provides_type": "direction"
+    },
+    {
+      "block_id": "direction_foreach_horizontal",
+      "statement_name": "foreach",
+      "provides_name": "directioniterator",
+      "provides_type": "direction"
+    },
+    {
+      "block_id": "entity_inventory_foreach",
+      "statement_name": "foreach",
+      "provides_name": "itemstackiterator",
+      "provides_type": "itemstack"
+    },
+    {
+      "block_id": "entity_loot_table_foreach",
+      "statement_name": "foreach",
+      "provides_name": "itemstackiterator",
+      "provides_type": "itemstack"
+    },
+    {
+      "block_id": "entity_passengers_direct_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "entity_passengers_indirect_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "get_command_parameter_entities_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "loot_table_foreach",
+      "statement_name": "foreach",
+      "provides_name": "itemstackiterator",
+      "provides_type": "itemstack"
+    },
+    {
+      "block_id": "world_entity_corners_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "world_entity_inrange_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "world_entity_player_foreach",
+      "statement_name": "foreach",
+      "provides_name": "entityiterator",
+      "provides_type": "entity"
+    },
+    {
+      "block_id": "world_loot_table_foreach",
+      "statement_name": "foreach",
+      "provides_name": "itemstackiterator",
+      "provides_type": "itemstack"
+    },
+    {
+      "block_id": "world_switch_world",
+      "statement_name": "worldstatements",
+      "provides_name": "_worldorig",
+      "provides_type": "world"
+    }
+  ]
+}

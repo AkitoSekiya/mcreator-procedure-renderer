@@ -102,3 +102,67 @@ export interface BlocklyJsonArg {
   height?: number;
   [key: string]: unknown;
 }
+
+/**
+ * Mirrors `public/reference/variable_types.json` — MCreator 2025.1's 9
+ * custom-variable types (`core/variables/*.json`), which never appear in
+ * blocks_full.json/blocks_render.json because `variables_get_<id>`/
+ * `variables_set_<id>` blocks are constructed dynamically in Java
+ * (net.mcreator.blockly.java.blocks.{Get,Set}VariableBlock), not declared in
+ * any static procedures/*.json file. See tools/extract_mcreator_metadata.py.
+ */
+export interface VariableTypeDef {
+  /** Type id used as the block_id suffix: "variables_get_" + id. */
+  id: string;
+  /** Blockly check/output type, e.g. "Number", "MCItem", "Entity". */
+  blockly_type: string;
+  colour_hue: number;
+  nullable: boolean;
+  label_en_get: string | null;
+  label_ja_get: string | null;
+  label_en_set: string | null;
+  label_ja_set: string | null;
+}
+
+export interface VariableTypesData {
+  mcreator_version: string;
+  note: string;
+  field_name: string; // "VAR"
+  set_value_input_name: string; // "VAL"
+  player_scope_entity_input_name: string; // "entity"
+  types: VariableTypeDef[];
+}
+
+/** Mirrors `public/reference/triggers.json` — MCreator 2025.1's 63 global
+ * triggers (`core/triggers/*.json`), each with the dependency *names* it
+ * provides to blocks used inside the procedure. */
+export interface TriggerDef {
+  id: string;
+  name_en: string | null;
+  name_ja: string | null;
+  dependencies_provided: string[];
+  cancelable: boolean;
+  side: string | null;
+}
+
+export interface TriggersData {
+  mcreator_version: string;
+  note: string;
+  triggers: TriggerDef[];
+}
+
+/** Mirrors `public/reference/iterator_providers.json` — which block_id's
+ * which statement_inputs key scopes which "*_iterator" value block
+ * (`core/procedures/*.json`'s `mcreator.statements[].provides`). */
+export interface IteratorProviderDef {
+  block_id: string;
+  statement_name: string;
+  provides_name: string;
+  provides_type: string;
+}
+
+export interface IteratorProvidersData {
+  mcreator_version: string;
+  note: string;
+  providers: IteratorProviderDef[];
+}

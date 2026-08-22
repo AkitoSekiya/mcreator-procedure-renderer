@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "custom_variable_player_demo",
+  "description": "PLAYER_PERSISTENT scopeのNumber変数を、対象プレイヤー（entity_from_deps）を指定してget/setする例",
+  "trigger": "player_log_in",
+  "variables": [{ "name": "loginCount", "type": "number", "scope": "PLAYER_PERSISTENT", "initial_value": 0 }],
+  "blocks": [
+    {
+      "node_id": "setter",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "loginCount" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "add",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": {
+              "node_id": "getter",
+              "block_id": "variables_get_number",
+              "fields": { "VAR": "loginCount" },
+              "value_inputs": { "entity": { "node_id": "e1", "block_id": "entity_from_deps" } }
+            },
+            "B": { "node_id": "one", "block_id": "math_number", "fields": { "NUM": "1" } }
+          }
+        },
+        "entity": { "node_id": "e2", "block_id": "entity_from_deps" }
+      }
+    }
+  ]
+}

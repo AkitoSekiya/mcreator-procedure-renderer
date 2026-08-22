@@ -1,0 +1,931 @@
+{
+  "mcreator_version": "2025.1",
+  "note": "MCreator 2025.1の実トリガー定義(core/triggers/*.json)+ローカライズ文字列から抽出。dependencies_providedは、trigger名がここに一致すればW001の判定に自動的に使われる。",
+  "triggers": [
+    {
+      "id": "block_break",
+      "name_en": "A block is broken",
+      "name_ja": "ブロックが壊れた",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "px",
+        "py",
+        "pz",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "block_multiplace",
+      "name_en": "A block is multiplaced",
+      "name_ja": "ブロックが複数同時配置される",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "placedagainst",
+        "px",
+        "py",
+        "pz",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "block_place",
+      "name_en": "A block is placed",
+      "name_ja": "ブロックが置かれた",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "placedagainst",
+        "px",
+        "py",
+        "pz",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "bonemeal_used",
+      "name_en": "Bonemeal is used",
+      "name_ja": "骨粉が使われた",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "bucket_filled",
+      "name_en": "Bucket is filled",
+      "name_ja": "バケツがいっぱいになる",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "chat_sent",
+      "name_en": "Player sent chat",
+      "name_ja": "プレイヤーがチャットを送信した",
+      "dependencies_provided": [
+        "entity",
+        "text",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "command_executed",
+      "name_en": "Command executed",
+      "name_ja": "コマンドが実行された",
+      "dependencies_provided": [
+        "arguments",
+        "command",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "crop_attempts_growth",
+      "name_en": "Crop attempts to grow",
+      "name_ja": "作物が成長を試みる",
+      "dependencies_provided": [
+        "blockstate",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "entity_attacked",
+      "name_en": "Entity is attacked",
+      "name_ja": "Entity is attacked",
+      "dependencies_provided": [
+        "amount",
+        "damagesource",
+        "entity",
+        "immediatesourceentity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_blocks",
+      "name_en": "Entity blocks with shield",
+      "name_ja": "エンティティが盾で攻撃を防いだとき",
+      "dependencies_provided": [
+        "blockedamount",
+        "damagesource",
+        "entity",
+        "immediatesourceentity",
+        "originalblockedamount",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_dies",
+      "name_en": "Entity dies",
+      "name_ja": "エンティティが死亡する",
+      "dependencies_provided": [
+        "damagesource",
+        "entity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "entity_dropxp",
+      "name_en": "Entity drops experience",
+      "name_ja": "エンティティが経験値をドロップする",
+      "dependencies_provided": [
+        "droppedexperience",
+        "entity",
+        "originalexperience",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_falls",
+      "name_en": "Entity falls",
+      "name_ja": "エンティティが落ちる",
+      "dependencies_provided": [
+        "damagemultiplier",
+        "distance",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "entity_grief",
+      "name_en": "Entity about to grief the world",
+      "name_ja": "エンティティがワールドを荒らそうとする",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "entity_healed",
+      "name_en": "Entity is healed",
+      "name_ja": "エンティティが回復した",
+      "dependencies_provided": [
+        "amount",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_item_pickup",
+      "name_en": "Entity picks up item",
+      "name_ja": "エンティティがアイテムを拾う",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "entity_joins_world",
+      "name_en": "Entity joins the world",
+      "name_ja": "エンティティがワールドに参加する",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "entity_jumps",
+      "name_en": "Entity jumps",
+      "name_ja": "エンティティがジャンプする",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "entity_pickupxp",
+      "name_en": "Entity picks up experience",
+      "name_ja": "エンティティが経験値を拾う",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_pre_hurt",
+      "name_en": "Entity is hurt",
+      "name_ja": "Entity is hurt",
+      "dependencies_provided": [
+        "amount",
+        "damagesource",
+        "entity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "entity_sets_attack_target",
+      "name_en": "Entity sets its attack target",
+      "name_ja": "エンティティが攻撃対象を設定する",
+      "dependencies_provided": [
+        "entity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "entity_spawns",
+      "name_en": "Entity spawns",
+      "name_ja": "エンティティがスポーンする",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "entity_struck_by_lightning",
+      "name_en": "Entity struck by lightning",
+      "name_ja": "エンティティが雷に打たれる",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_tamed",
+      "name_en": "Entity is tamed",
+      "name_ja": "エンティティが手懐けられた",
+      "dependencies_provided": [
+        "entity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_ticks",
+      "name_en": "On entity tick update",
+      "name_ja": "エンティティのチック更新時",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "entity_travels_to_dimension",
+      "name_en": "Entity travels to a dimension",
+      "name_ja": "エンティティがディメンションに移動する",
+      "dependencies_provided": [
+        "dimension",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "entity_uses_totem",
+      "name_en": "Entity uses a totem",
+      "name_ja": "エンティティがトーテムを使用したとき",
+      "dependencies_provided": [
+        "damagesource",
+        "entity",
+        "immediatesourceentity",
+        "itemstack",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "explosion_occurs",
+      "name_en": "An explosion occurs",
+      "name_ja": "爆発が起る",
+      "dependencies_provided": [
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "farmland_trampled",
+      "name_en": "Farmland is trampled",
+      "name_ja": "農地が踏み荒らされた",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "falldistance",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "gem_dropped",
+      "name_en": "Item is dropped",
+      "name_ja": "アイテムがドロップされた",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "gem_expired",
+      "name_en": "Dropped item expires",
+      "name_ja": "ドロップしたアイテムが消滅した",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "item_crafted",
+      "name_en": "Item is crafted",
+      "name_ja": "アイテムがクラフトされた",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "item_destroyed",
+      "name_en": "Item is destroyed",
+      "name_ja": "アイテムが破壊された",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "item_smelted",
+      "name_en": "Item is smelted",
+      "name_ja": "アイテムが精錬される",
+      "dependencies_provided": [
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "minecraft_world_loaded",
+      "name_en": "Minecraft loads a world",
+      "name_ja": "マインクラフトがワールドをロードする",
+      "dependencies_provided": [
+        "world"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "minecraft_world_unloaded",
+      "name_en": "Minecraft unloads a world",
+      "name_ja": "マインクラフトがワールドをアンロードする",
+      "dependencies_provided": [
+        "world"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "mod_clientload",
+      "name_en": "Mod client-side loaded",
+      "name_ja": "モッドをクライアント側を読み込んだ",
+      "dependencies_provided": [],
+      "cancelable": false,
+      "side": "client"
+    },
+    {
+      "id": "mod_load",
+      "name_en": "Mod loaded in the game",
+      "name_ja": "モッドをゲームにロードしました",
+      "dependencies_provided": [],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "mod_serverload",
+      "name_en": "Mod server-side loaded",
+      "name_ja": "サーバー側でモッドがロードされる",
+      "dependencies_provided": [],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_completes_advancement",
+      "name_en": "Player completes advancement",
+      "name_ja": "プレイヤーが進捗を達成する",
+      "dependencies_provided": [
+        "advancement",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_critical_hit",
+      "name_en": "Player deals critical hit",
+      "name_ja": "プレイヤーがクリティカルヒットを与える",
+      "dependencies_provided": [
+        "damagemodifier",
+        "entity",
+        "isvanillacritical",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_fishes_item",
+      "name_en": "Player fishes item",
+      "name_ja": "プレイヤーがアイテムを釣る",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_in_bed",
+      "name_en": "Player goes to bed",
+      "name_ja": "プレイヤーがベッドに行く",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_left_click_air",
+      "name_en": "Player left clicks in air",
+      "name_ja": "Player left clicks in air",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_left_click_block",
+      "name_en": "Player left clicks block",
+      "name_ja": "プレイヤーがブロックを左クリックする",
+      "dependencies_provided": [
+        "blockstate",
+        "direction",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_log_in",
+      "name_en": "Player joins the world",
+      "name_ja": "プレイヤーがワールドに参加した",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_log_out",
+      "name_en": "Player leaves the world",
+      "name_ja": "プレイヤーがワールドから出る",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_respawn",
+      "name_en": "Player respawns",
+      "name_ja": "プレイヤーがリスポーンした",
+      "dependencies_provided": [
+        "endconquered",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": "server"
+    },
+    {
+      "id": "player_right_click_block",
+      "name_en": "Player right clicks block",
+      "name_ja": "プレイヤーがブロックを右クリックする",
+      "dependencies_provided": [
+        "blockstate",
+        "direction",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_right_click_empty_hand",
+      "name_en": "Player right clicks with empty hand",
+      "name_ja": "Player right clicks with empty hand",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_right_click_entity",
+      "name_en": "Player right clicks on entity",
+      "name_ja": "プレイヤーがエンティティに右クリックする",
+      "dependencies_provided": [
+        "entity",
+        "sourceentity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_right_click_item",
+      "name_en": "Player right clicks with item",
+      "name_ja": "プレイヤーがアイテムで右クリックをする",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_ticks",
+      "name_en": "On player tick update",
+      "name_ja": "プレーヤーのティック更新時",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_use_hoe",
+      "name_en": "Player tills with hoe",
+      "name_ja": "プレイヤーがクワで耕す",
+      "dependencies_provided": [
+        "blockstate",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "player_useitem_finish",
+      "name_en": "Player finishes using item",
+      "name_ja": "プレイヤーがアイテムを使い終わる",
+      "dependencies_provided": [
+        "duration",
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_useitem_start",
+      "name_en": "Player uses item",
+      "name_ja": "プレイヤーがアイテムを使う",
+      "dependencies_provided": [
+        "duration",
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "player_useitem_stop",
+      "name_en": "Player stops using item",
+      "name_ja": "プレイヤーがアイテムの使用をやめる",
+      "dependencies_provided": [
+        "duration",
+        "entity",
+        "itemstack",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": null
+    },
+    {
+      "id": "player_wakes_up",
+      "name_en": "Player wakes up",
+      "name_ja": "プレイヤーが起きた",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": false,
+      "side": null
+    },
+    {
+      "id": "player_xp_change",
+      "name_en": "Player XP amount changes",
+      "name_ja": "プレイヤーの経験値量が変化する",
+      "dependencies_provided": [
+        "amount",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "player_xp_level_change",
+      "name_en": "Player XP level changes",
+      "name_ja": "プレイヤーの経験値レベルが変化する",
+      "dependencies_provided": [
+        "amount",
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "sapling_glow",
+      "name_en": "Block grows into feature",
+      "name_ja": "Block grows into feature",
+      "dependencies_provided": [
+        "blockstate",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "village_siege",
+      "name_en": "Zombies siege a village",
+      "name_ja": "ゾンビが村を包囲する",
+      "dependencies_provided": [
+        "entity",
+        "world",
+        "x",
+        "y",
+        "z"
+      ],
+      "cancelable": true,
+      "side": "server"
+    },
+    {
+      "id": "world_ticks",
+      "name_en": "On world tick update",
+      "name_ja": "ワールドティックの更新時",
+      "dependencies_provided": [
+        "world"
+      ],
+      "cancelable": false,
+      "side": "server"
+    }
+  ]
+}

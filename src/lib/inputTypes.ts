@@ -36,6 +36,17 @@ export interface RawProcedureDoc {
   description?: unknown;
   trigger?: unknown;
   blocks?: unknown;
+  /** Custom variable declarations: `[{name, type, scope}]`. See README's
+   * "変数" section. Optional — omitting it is equivalent to `[]`. */
+  variables?: unknown;
+  [key: string]: unknown;
+}
+
+/** Raw entry of the top-level `variables` array, before validation. */
+export interface RawVariableDecl {
+  name?: unknown;
+  type?: unknown;
+  scope?: unknown;
   [key: string]: unknown;
 }
 

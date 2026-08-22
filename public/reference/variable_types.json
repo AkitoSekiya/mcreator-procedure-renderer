@@ -1,0 +1,99 @@
+{
+  "mcreator_version": "2025.1",
+  "note": "MCreator 2025.1の変数type定義(core/variables/*.json)+ローカライズ文字列から抽出。block_idは \"variables_get_<id>\"/\"variables_set_<id>\" で、fields.VAR に変数名を持つ。",
+  "field_name": "VAR",
+  "set_value_input_name": "VAL",
+  "player_scope_entity_input_name": "entity",
+  "types": [
+    {
+      "id": "number",
+      "blockly_type": "Number",
+      "colour_hue": 230,
+      "nullable": false,
+      "label_en_get": "Get number",
+      "label_ja_get": "数値を取得",
+      "label_en_set": "Set number",
+      "label_ja_set": "数値を設定"
+    },
+    {
+      "id": "logic",
+      "blockly_type": "Boolean",
+      "colour_hue": 210,
+      "nullable": false,
+      "label_en_get": "Get logic",
+      "label_ja_get": "ロジックを取得",
+      "label_en_set": "Set logic",
+      "label_ja_set": "ロジックを設定"
+    },
+    {
+      "id": "string",
+      "blockly_type": "String",
+      "colour_hue": 160,
+      "nullable": false,
+      "label_en_get": "Get text",
+      "label_ja_get": "テキストを取得",
+      "label_en_set": "Set text",
+      "label_ja_set": "テキストを設定"
+    },
+    {
+      "id": "itemstack",
+      "blockly_type": "MCItem",
+      "colour_hue": 350,
+      "nullable": false,
+      "label_en_get": "Get itemstack",
+      "label_ja_get": "アイテムスタックを取得",
+      "label_en_set": "Set itemstack",
+      "label_ja_set": "アイテムスタックを設定"
+    },
+    {
+      "id": "blockstate",
+      "blockly_type": "MCItemBlock",
+      "colour_hue": 60,
+      "nullable": false,
+      "label_en_get": "Get blockstate",
+      "label_ja_get": "ブロックステートを取得",
+      "label_en_set": "Set blockstate",
+      "label_ja_set": "ブロックステートを設定"
+    },
+    {
+      "id": "entity",
+      "blockly_type": "Entity",
+      "colour_hue": 195,
+      "nullable": true,
+      "label_en_get": "Get entity",
+      "label_ja_get": "エンティティを取得",
+      "label_en_set": "Set entity",
+      "label_ja_set": "エンティティを設定"
+    },
+    {
+      "id": "direction",
+      "blockly_type": "Direction",
+      "colour_hue": 20,
+      "nullable": false,
+      "label_en_get": "Get direction",
+      "label_ja_get": "方向を取得",
+      "label_en_set": "Set direction",
+      "label_ja_set": "方向を設定"
+    },
+    {
+      "id": "damagesource",
+      "blockly_type": "DamageSource",
+      "colour_hue": 320,
+      "nullable": false,
+      "label_en_get": "Get damage source",
+      "label_ja_get": "Get damage source",
+      "label_en_set": "Set damage source",
+      "label_ja_set": "Set damage source"
+    },
+    {
+      "id": "actionresulttype",
+      "blockly_type": "ActionResultType",
+      "colour_hue": 90,
+      "nullable": false,
+      "label_en_get": "Get action result",
+      "label_ja_get": "アクション結果を取得",
+      "label_en_set": "Set action result",
+      "label_ja_set": "アクション結果を設定"
+    }
+  ]
+}

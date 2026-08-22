@@ -13,6 +13,10 @@ const root = path.resolve(__dirname, '..');
 const full = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_full.json'), 'utf-8'));
 const render = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_render.json'), 'utf-8'));
 const dropdownOptions = buildDropdownOptionsMap(render);
+const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
+const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
+const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders };
 
 const samplesDir = path.join(root, 'public/samples');
 const files = readdirSync(samplesDir)
@@ -27,7 +31,7 @@ if (files.length === 0) {
 let hasFailure = false;
 for (const file of files) {
   const text = readFileSync(path.join(samplesDir, file), 'utf-8');
-  const result = validateProcedureText(text, full, dropdownOptions);
+  const result = validateProcedureText(text, full, dropdownOptions, extras);
   const errorCount = result.messages.filter((m) => m.severity === 'error').length;
   const warnCount = result.messages.filter((m) => m.severity === 'warn').length;
   const infoCount = result.messages.filter((m) => m.severity === 'info').length;

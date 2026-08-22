@@ -11,13 +11,39 @@
  * make sense (against blocks_render.json's real machine values) — the
  * things that require blocks_full.json's block-level semantics.
  */
-import type { FullReferenceData, FullBlockDef } from './referenceTypes';
-import type { ResolvedNode } from './resolvedTypes';
+import type {
+  FullReferenceData,
+  FullBlockDef,
+  VariableTypeDef,
+  VariableTypesData,
+  TriggerDef,
+  TriggersData,
+  IteratorProviderDef,
+  IteratorProvidersData,
+} from './referenceTypes';
+import type { ResolvedNode, ResolvedVariableDecl } from './resolvedTypes';
 import { normalizeInput } from './normalizeInput';
-import type { NormalizedNode, NormalizedProcedure } from './normalizedTypes';
+import type { NormalizedNode, NormalizedProcedure, NormalizedVariableDecl } from './normalizedTypes';
 import { findDropdownOptions, type DropdownOptionsMap } from './dropdownOptions';
 import type { ValidationMessage } from './messages';
 import { isDangerousKey, MAX_INPUT_JSON_LENGTH } from './guards';
+
+/**
+ * Optional MCreator 2025.1 metadata this module can use beyond
+ * blocks_full.json/blocks_render.json — all reverse-engineered from real
+ * MCreator 2025.1 data (see tools/extract_mcreator_metadata.py), covering
+ * things the static 516-block catalog structurally can't (custom variable
+ * get/set blocks are constructed in Java at runtime; the trigger catalog and
+ * iterator-scoping rules aren't block definitions at all). Every field is
+ * optional and additive: omitting any of them just disables that feature's
+ * validation (variable references fall through to plain E003 "unknown
+ * block_id", triggers get no dependency auto-fill, iterator scope isn't
+ * checked) — existing 3-argument callers keep working unchanged. */
+export interface ValidationExtras {
+  variableTypes?: VariableTypesData;
+  triggers?: TriggersData;
+  iteratorProviders?: IteratorProvidersData;
+}
 
 export type { Severity, ValidationMessage } from './messages';
 
@@ -61,6 +87,24 @@ function matchesDynamicPattern(table: Record<string, RegExp[]>, blockId: string,
   if (!patterns) return false;
   return patterns.some((p) => p.test(key));
 }
+
+/** The 6 real MCreator variable scopes (net.mcreator.workspace.elements.
+ * VariableType$Scope, reverse-engineered via javap — see
+ * tools/extract_mcreator_metadata.py's module docstring). "local" is
+ * lowercase; the other 5 are the real Java enum constant names. */
+const VALID_VARIABLE_SCOPES = new Set(['local', 'GLOBAL_SESSION', 'GLOBAL_MAP', 'GLOBAL_WORLD', 'PLAYER_LIFETIME', 'PLAYER_PERSISTENT']);
+/** Scopes whose get/set blocks carry an extra "entity" value input (which
+ * player's value is this?) — confirmed via mcreator_extensions.js's
+ * 'variable_entity_input' registerMutator. */
+const PLAYER_VARIABLE_SCOPES = new Set(['PLAYER_LIFETIME', 'PLAYER_PERSISTENT']);
+/** variables_get_<type>/variables_set_<type> — the real block_id shape,
+ * confirmed via `javap -v` on net.mcreator.blockly.java.BlocklyVariables'
+ * `<block type=\"(?:variables_set_|variables_get_)\">` regex. */
+const VARIABLE_BLOCK_ID_PATTERN = /^variables_(get|set)_([a-z]+)$/;
+
+/** No iterator-provided dependency is active — the default at every
+ * top-level stack root. */
+const EMPTY_PROVIDES: ReadonlySet<string> = new Set();
 
 /** Effective `check` type to use for E006 when a value input is one of the
  * dynamic mutator-added names above (not present in blocks_full.json). */
@@ -126,6 +170,19 @@ interface Ctx {
   depsUsed: Set<string>;
   requiredApiBlocksReported: Set<string>; // nodeId set, avoid double I002 per node
   requiredApisUsed: Set<string>; // procedure-wide aggregate, for I003
+  variableTypes: Map<string, VariableTypeDef>; // type id ("number") -> def
+  // Two separate namespaces, matching real MCreator's two separate lookup
+  // paths for a "local:"- vs "global:"-prefixed VAR field value (confirmed
+  // via javap — see normalizeInput.ts's resolveVariables doc comment): a
+  // `local` variable and a same-named GLOBAL_*/PLAYER_* one are genuinely
+  // different variables, not a collision, so a bare reference (fields.VAR
+  // has no scope prefix in this app's JSON — see validateVariableNode) must
+  // pick a namespace when both exist. `local` wins on a name present in
+  // both, per innermost-scope-shadows-outer-scope convention (documented in
+  // README).
+  localVariableDecls: Map<string, { type: string; scope: string }>;
+  globalVariableDecls: Map<string, { type: string; scope: string }>;
+  iteratorProviders: Map<string, IteratorProviderDef[]>; // `${block_id}:${statement_name}` -> provider defs
 }
 
 function pushMsg(ctx: Ctx, msg: ValidationMessage): void {
@@ -196,8 +253,20 @@ function checkMetadataContradictions(ctx: Ctx, node: ResolvedNode, shape: string
  * cannot be normalized (unknown block_id, wrong shape for context) — callers
  * should not attach a null result into the normalized tree, but the function
  * still recurses into children so nested problems are surfaced too.
+ *
+ * `activeProvides` is the set of iterator-scoped dependency names (e.g.
+ * "entityiterator") currently in scope — non-empty only while walking inside
+ * a statement_inputs branch that a known *_foreach-style block "provides" to
+ * (see ctx.iteratorProviders / E017 below). Threaded explicitly rather than
+ * mutated on ctx so each branch of the tree only ever sees what its own
+ * ancestors actually provide.
  */
-function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' | 'value'): NormalizedNode | null {
+function validateNode(
+  ctx: Ctx,
+  node: ResolvedNode,
+  expectedShape: 'statement' | 'value',
+  activeProvides: ReadonlySet<string> = EMPTY_PROVIDES,
+): NormalizedNode | null {
   const { nodeId, blockId } = node;
 
   if (ctx.seenIds.has(nodeId)) {
@@ -212,6 +281,15 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
     ctx.seenIds.add(nodeId);
   }
 
+  // variables_get_<type>/variables_set_<type> are never in blocks_full.json
+  // (constructed dynamically in MCreator's own Java code — see
+  // ValidationExtras's doc comment) — dispatch to dedicated handling before
+  // the blocks_full.json lookup below, which would otherwise always 404.
+  const variableMatch = VARIABLE_BLOCK_ID_PATTERN.exec(blockId);
+  if (variableMatch) {
+    return validateVariableNode(ctx, node, expectedShape, variableMatch, activeProvides);
+  }
+
   const def: FullBlockDef | undefined = ctx.ref.blocks[blockId];
   if (!def) {
     pushMsg(ctx, {
@@ -224,9 +302,9 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
     checkMetadataContradictions(ctx, node, undefined);
     // Still recurse into children so nested problems are also reported,
     // even though this node itself can't be normalized.
-    for (const child of Object.values(node.valueInputs)) validateNode(ctx, child, 'value');
+    for (const child of Object.values(node.valueInputs)) validateNode(ctx, child, 'value', activeProvides);
     for (const children of Object.values(node.statementInputs)) {
-      for (const child of children) validateNode(ctx, child, 'statement');
+      for (const child of children) validateNode(ctx, child, 'statement', activeProvides);
     }
     return null;
   }
@@ -242,6 +320,27 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
       nodeId,
       blockId,
     });
+  }
+
+  // Iterator scope check (E017): "<X>_iterator" value blocks (entity_/
+  // direction_/itemstack_iterator — confirmed the only 3 such blocks in
+  // blocks_full.json) only make sense nested inside the specific
+  // statement_inputs branch of a *_foreach-style block that "provides"
+  // "<X>iterator" (see ctx.iteratorProviders / tools/extract_mcreator_
+  // metadata.py's iterator_providers.json). Naming is mechanical: strip the
+  // underscore ("entity_iterator" -> "entityiterator").
+  const iteratorMatch = /^([a-z]+)_iterator$/.exec(blockId);
+  if (iteratorMatch && ctx.ref.blocks[blockId]) {
+    const requiredProvide = iteratorMatch[1] + 'iterator';
+    if (!activeProvides.has(requiredProvide)) {
+      pushMsg(ctx, {
+        code: 'E017',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）は "${requiredProvide}" を提供するstatement_inputs（対応する*_foreachブロックの内部）の外で使われています。`,
+        nodeId,
+        blockId,
+      });
+    }
   }
 
   for (const depName of def.dependencies) {
@@ -381,11 +480,11 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
         blockId,
       });
       // Still validate the orphaned child so its own errors surface.
-      validateNode(ctx, childNode, 'value');
+      validateNode(ctx, childNode, 'value', activeProvides);
       continue;
     }
     const effectiveCheck = inputDef ? inputDef.check : dynamicValueInputCheck(blockId, key);
-    const child = validateNode(ctx, childNode, 'value');
+    const child = validateNode(ctx, childNode, 'value', activeProvides);
     // Type-compatibility check (E006), performed whenever the child's
     // block_id resolves to a known definition (independent of whether the
     // child fully validated, so a shape mismatch doesn't hide a separate
@@ -419,12 +518,43 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
       });
       continue;
     }
+    // If this exact block_id + statement key is a known iterator provider
+    // (e.g. world_entity_inrange_foreach's "foreach"), extend the active-
+    // provides set for everything nested inside it (E017 above).
+    const providesHere = ctx.iteratorProviders.get(`${blockId}:${key}`);
+    let childActiveProvides = activeProvides;
+    if (providesHere && providesHere.length > 0) {
+      const extended = new Set(activeProvides);
+      for (const p of providesHere) extended.add(p.provides_name);
+      childActiveProvides = extended;
+    }
     const children: NormalizedNode[] = [];
     for (const childNode of childList) {
-      const child = validateNode(ctx, childNode, 'statement');
+      const child = validateNode(ctx, childNode, 'statement', childActiveProvides);
       if (child) children.push(child);
     }
     statementInputs[key] = children;
+  }
+
+  // W011: a block that supports statement_inputs but whose slots are all
+  // completely empty (never provided, or provided but resolving to zero
+  // children) is structurally legal — MCreator itself allows an empty if/
+  // repeat body — but likely signals an unfinished procedure, worth a
+  // gentle nudge rather than silence. Scoped to blocks that actually *have*
+  // a statement_inputs slot to begin with (def.statement_inputs.length > 0),
+  // so plain leaf statements (spawn_entity etc., which have none) never
+  // trigger it.
+  if (def.statement_inputs.length > 0) {
+    const totalChildren = Object.values(statementInputs).reduce((sum, arr) => sum + arr.length, 0);
+    if (totalChildren === 0) {
+      pushMsg(ctx, {
+        code: 'W011',
+        severity: 'warn',
+        message: `ノード ${nodeId}（block_id: ${blockId}）はステートメント入力（${def.statement_inputs.join(', ')}）が全て空です。未完成のプロシージャの可能性があります。`,
+        nodeId,
+        blockId,
+      });
+    }
   }
 
   if (blockId === 'call_procedure') {
@@ -432,6 +562,182 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
   }
 
   return { nodeId, blockId, fields, valueInputs, statementInputs };
+}
+
+/**
+ * Handles `variables_get_<type>`/`variables_set_<type>` nodes — never
+ * present in blocks_full.json (see ValidationExtras's doc comment). Mirrors
+ * validateNode's overall structure (duplicate-id check already done by the
+ * caller; shape/field/value_input/statement_input validation here) but
+ * against variable_types.json + the document's own `variables` declarations
+ * instead of a FullBlockDef.
+ */
+function validateVariableNode(
+  ctx: Ctx,
+  node: ResolvedNode,
+  expectedShape: 'statement' | 'value',
+  match: RegExpExecArray,
+  activeProvides: ReadonlySet<string>,
+): NormalizedNode | null {
+  const { nodeId, blockId } = node;
+  const kind = match[1] as 'get' | 'set';
+  const typeId = match[2];
+  const typeDef = ctx.variableTypes.get(typeId);
+
+  if (!typeDef) {
+    // Type suffix isn't one of the 9 known variable types (or no
+    // variable_types.json was supplied at all) — same treatment as any
+    // other unrecognized block_id, so it fails safe (E003) instead of being
+    // silently accepted or guessed at.
+    pushMsg(ctx, {
+      code: 'E003',
+      severity: 'error',
+      message: `ノード ${nodeId} の block_id "${blockId}" は blocks_full.json にも既知の変数型（variable_types.json）にも存在しません。`,
+      nodeId,
+      blockId,
+    });
+    for (const child of Object.values(node.valueInputs)) validateNode(ctx, child, 'value', activeProvides);
+    for (const children of Object.values(node.statementInputs)) {
+      for (const child of children) validateNode(ctx, child, 'statement', activeProvides);
+    }
+    return null;
+  }
+
+  const shape: 'value' | 'statement' = kind === 'get' ? 'value' : 'statement';
+  if (shape !== expectedShape) {
+    const where = expectedShape === 'statement' ? 'ステートメント列' : '値入力(value_inputs)';
+    pushMsg(ctx, {
+      code: 'E007',
+      severity: 'error',
+      message: `ノード ${nodeId}（block_id: ${blockId}）は shape="${shape}" ですが、${where} には shape="${expectedShape}" のブロックのみ配置できます。`,
+      nodeId,
+      blockId,
+    });
+  }
+  checkMetadataContradictions(ctx, node, shape);
+
+  // --- fields: only "VAR" (the referenced variable's name) is legal ---
+  const fields: Record<string, string> = {};
+  let isPlayerScopedVariable = false;
+  for (const [key, value] of Object.entries(node.fieldsRaw)) {
+    if (isDangerousKey(key)) {
+      pushMsg(ctx, {
+        code: 'E010',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の fields キー "${key}" は予約済みのキー名のため使用できません。`,
+        nodeId,
+        blockId,
+      });
+      continue;
+    }
+    if (key !== 'VAR') {
+      pushMsg(ctx, {
+        code: 'E005',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の fields キー "${key}" はこのブロックの定義に存在しません（変数参照ブロックが持てるfieldは "VAR" のみです）。`,
+        nodeId,
+        blockId,
+      });
+      continue;
+    }
+    const varName = typeof value === 'string' ? value : JSON.stringify(value);
+    // "local" shadows a same-named global-family variable — see Ctx's
+    // localVariableDecls/globalVariableDecls doc comment.
+    const decl = ctx.localVariableDecls.get(varName) ?? ctx.globalVariableDecls.get(varName);
+    if (!decl) {
+      pushMsg(ctx, {
+        code: 'E013',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）は変数 "${varName}" を参照していますが、variables 配列に定義がありません。`,
+        nodeId,
+        blockId,
+      });
+      fields.VAR = varName;
+      continue;
+    }
+    if (decl.type !== typeId) {
+      pushMsg(ctx, {
+        code: 'E016',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）は型 "${typeId}" ですが、変数 "${varName}" は型 "${decl.type}" として宣言されています。`,
+        nodeId,
+        blockId,
+      });
+    }
+    isPlayerScopedVariable = PLAYER_VARIABLE_SCOPES.has(decl.scope);
+    fields.VAR = `${decl.scope === 'local' ? 'local' : 'global'}:${varName}`;
+  }
+  if (!('VAR' in fields)) {
+    pushMsg(ctx, {
+      code: 'E002',
+      severity: 'error',
+      message: `ノード ${nodeId}（block_id: ${blockId}）に fields.VAR（参照する変数名）がありません。`,
+      nodeId,
+      blockId,
+    });
+  }
+
+  // --- value_inputs: "VAL" (set only, check=blocklyType) + "entity"
+  // (either kind, check=Entity — only meaningful when the variable turned
+  // out to be player-scoped above, but accepted structurally either way so
+  // an E016 type mismatch doesn't also cascade into a spurious E004). ---
+  const valueInputs: Record<string, NormalizedNode> = {};
+  for (const [key, childNode] of Object.entries(node.valueInputs)) {
+    const isVal = kind === 'set' && key === 'VAL';
+    const isEntity = key === 'entity';
+    if (!isVal && !isEntity) {
+      pushMsg(ctx, {
+        code: 'E004',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の value_inputs キー "${key}" はこのブロックの定義に存在しません。`,
+        nodeId,
+        blockId,
+      });
+      validateNode(ctx, childNode, 'value', activeProvides);
+      continue;
+    }
+    const effectiveCheck = isVal ? typeDef.blockly_type : 'Entity';
+    const child = validateNode(ctx, childNode, 'value', activeProvides);
+    const childDef = ctx.ref.blocks[childNode.blockId];
+    if (childDef && !isCheckCompatible(childDef.output_type, effectiveCheck)) {
+      pushMsg(ctx, {
+        code: 'E006',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の入力 "${key}" は型 "${effectiveCheck}" を要求しますが、接続されたブロック（block_id: ${childNode.blockId}）の出力型 ${JSON.stringify(childDef.output_type)} と適合しません。`,
+        nodeId,
+        blockId,
+      });
+    }
+    if (child) valueInputs[key] = child;
+  }
+
+  // No legal statement_inputs on a variable get/set block.
+  for (const key of Object.keys(node.statementInputs)) {
+    pushMsg(ctx, {
+      code: 'E004',
+      severity: 'error',
+      message: `ノード ${nodeId}（block_id: ${blockId}）の statement_inputs キー "${key}" はこのブロックの定義に存在しません。`,
+      nodeId,
+      blockId,
+    });
+  }
+
+  // W010: a PLAYER_LIFETIME/PLAYER_PERSISTENT-scoped reference structurally
+  // supports the "entity" input but doesn't strictly require it (same
+  // lenient "we never require inputs to be filled" philosophy as every
+  // other block in this app) — flagged as a warning, not an error, since
+  // the block still loads and renders fine either way.
+  if (isPlayerScopedVariable && !Object.prototype.hasOwnProperty.call(node.valueInputs, 'entity')) {
+    pushMsg(ctx, {
+      code: 'W010',
+      severity: 'warn',
+      message: `ノード ${nodeId}（block_id: ${blockId}）はPLAYER系スコープの変数を参照していますが、value_inputs["entity"]（対象プレイヤー）が指定されていません。`,
+      nodeId,
+      blockId,
+    });
+  }
+
+  return { nodeId, blockId, fields, valueInputs, statementInputs: {}, isPlayerScopedVariable };
 }
 
 /** call_procedure's dynamic `argN`/`nameN` pairs (README/SPEC's documented
@@ -486,10 +792,43 @@ function checkCallProcedureArgContiguity(
   }
 }
 
+/** JS primitive each variable type's `initial_value` should roughly match,
+ * for the 3 types with an obvious 1:1 JSON primitive (Number -> number,
+ * Logic -> boolean, String -> string). The other 6 types (Entity/Itemstack/
+ * Blockstate/Direction/Damagesource/ActionResultType) are complex in-game
+ * objects with no reasonable JSON-primitive representation, so their
+ * initial_value isn't type-checked at all — accepted as-is. */
+const VARIABLE_INITIAL_VALUE_JS_TYPE: Partial<Record<string, 'number' | 'boolean' | 'string'>> = {
+  number: 'number',
+  logic: 'boolean',
+  string: 'string',
+};
+
+/**
+ * `initial_value` (net.mcreator.workspace.elements.VariableElement.value in
+ * real MCreator — see ResolvedVariableDecl's doc comment) has no Blockly XML
+ * representation and never affects rendering, so a mismatch is a warning
+ * (W012), not an E-level error that would block the whole document from
+ * rendering over something with zero visual effect.
+ */
+function checkVariableInitialValue(messages: ValidationMessage[], decl: ResolvedVariableDecl): void {
+  if (decl.initialValue === undefined) return;
+  const expected = VARIABLE_INITIAL_VALUE_JS_TYPE[decl.type];
+  if (!expected) return; // no primitive representation to check against
+  if (typeof decl.initialValue !== expected) {
+    messages.push({
+      code: 'W012',
+      severity: 'warn',
+      message: `変数 "${decl.name}"（type: ${decl.type}）の initial_value は ${expected} 型を想定していますが、実際は ${typeof decl.initialValue} でした（${JSON.stringify(decl.initialValue)}）。initial_valueはレンダリングには影響しません。`,
+    });
+  }
+}
+
 export function validateProcedure(
   raw: unknown,
   ref: FullReferenceData,
   dropdownOptions: DropdownOptionsMap,
+  extras?: ValidationExtras,
 ): ValidationResult {
   const { messages: normalizeMessages, doc } = normalizeInput(raw, ref);
 
@@ -497,14 +836,72 @@ export function validateProcedure(
     return { messages: normalizeMessages, ok: false, normalized: null };
   }
 
+  const messages: ValidationMessage[] = [...normalizeMessages];
+
+  const variableTypes = new Map<string, VariableTypeDef>();
+  for (const t of extras?.variableTypes?.types ?? []) variableTypes.set(t.id, t);
+
+  const iteratorProviders = new Map<string, IteratorProviderDef[]>();
+  for (const p of extras?.iteratorProviders?.providers ?? []) {
+    const key = `${p.block_id}:${p.statement_name}`;
+    const list = iteratorProviders.get(key);
+    if (list) list.push(p);
+    else iteratorProviders.set(key, [p]);
+  }
+
+  const triggers = new Map<string, TriggerDef>();
+  for (const t of extras?.triggers?.triggers ?? []) triggers.set(t.id, t);
+
+  // Validate + index the top-level `variables` declarations (E014: unknown
+  // type/scope value). Only entries that pass become lookupable by
+  // validateVariableNode (E013 "undefined variable" naturally covers any
+  // reference to a name that failed here too, which is the right outcome —
+  // a variable declared with a bogus type shouldn't be treated as usable).
+  const localVariableDecls = new Map<string, { type: string; scope: string }>();
+  const globalVariableDecls = new Map<string, { type: string; scope: string }>();
+  const normalizedVariables: NormalizedVariableDecl[] = [];
+  for (const decl of doc.variables) {
+    const typeDef = variableTypes.get(decl.type);
+    if (!typeDef) {
+      messages.push({
+        code: 'E014',
+        severity: 'error',
+        message: `変数 "${decl.name}" の type "${decl.type}" は不明です（既知の型: ${[...variableTypes.keys()].sort().join(', ') || '(variable_types.json が読み込まれていません)'}）。`,
+      });
+      continue;
+    }
+    if (!VALID_VARIABLE_SCOPES.has(decl.scope)) {
+      messages.push({
+        code: 'E014',
+        severity: 'error',
+        message: `変数 "${decl.name}" の scope "${decl.scope}" は不明です（既知のscope: ${[...VALID_VARIABLE_SCOPES].join(', ')}）。`,
+      });
+      continue;
+    }
+    checkVariableInitialValue(messages, decl);
+    if (decl.scope === 'local') {
+      localVariableDecls.set(decl.name, { type: decl.type, scope: decl.scope });
+      // Only local declarations get a <variable> XML element — see
+      // NormalizedVariableDecl's doc comment for why GLOBAL_*/PLAYER_* ones
+      // don't (and safely can't collide with a same-named local one here).
+      normalizedVariables.push({ name: decl.name, blocklyType: typeDef.blockly_type });
+    } else {
+      globalVariableDecls.set(decl.name, { type: decl.type, scope: decl.scope });
+    }
+  }
+
   const ctx: Ctx = {
     ref,
     dropdownOptions,
-    messages: [...normalizeMessages],
+    messages,
     seenIds: new Set(),
     depsUsed: new Set(),
     requiredApiBlocksReported: new Set(),
     requiredApisUsed: new Set(),
+    variableTypes,
+    localVariableDecls,
+    globalVariableDecls,
+    iteratorProviders,
   };
 
   const stacks: NormalizedNode[][] = doc.stacks.map((stack) =>
@@ -512,8 +909,15 @@ export function validateProcedure(
   );
 
   // SPEC v1.2 rule 2: W001 shows only the deps the used blocks require minus
-  // what the trigger declares it provides (by name, "entity:entity" style).
-  const missingDeps = [...ctx.depsUsed].filter((d) => !doc.trigger.providedDeps.has(d));
+  // what the trigger declares it provides (by name, "entity:entity" style),
+  // now also merging in the real trigger catalog's dependencies_provided
+  // when the trigger name matches a known one (purely additive — an
+  // explicit trigger.dependencies in the input is still honored exactly as
+  // before, this only adds more "provided" names on top).
+  const triggerDef = doc.trigger.name ? triggers.get(doc.trigger.name) : undefined;
+  const providedDeps = new Set(doc.trigger.providedDeps);
+  if (triggerDef) for (const d of triggerDef.dependencies_provided) providedDeps.add(d);
+  const missingDeps = [...ctx.depsUsed].filter((d) => !providedDeps.has(d));
   if (missingDeps.length > 0) {
     ctx.messages.push({
       code: 'W001',
@@ -540,7 +944,7 @@ export function validateProcedure(
     ok: !hasError,
     normalized: hasError
       ? null
-      : { procedureName: doc.procedureName, trigger: doc.trigger.name, stacks, mode: doc.mode },
+      : { procedureName: doc.procedureName, trigger: doc.trigger.name, stacks, mode: doc.mode, variables: normalizedVariables },
   };
 }
 
@@ -549,12 +953,13 @@ export function validateProcedureText(
   text: string,
   ref: FullReferenceData,
   dropdownOptions: DropdownOptionsMap,
+  extras?: ValidationExtras,
 ): ValidationResult {
   const parsed = parseJson(text);
   if ('error' in parsed) {
     return { messages: [parsed.error], ok: false, normalized: null };
   }
-  return validateProcedure(parsed.data, ref, dropdownOptions);
+  return validateProcedure(parsed.data, ref, dropdownOptions, extras);
 }
 
 // Re-exported for convenience so callers don't need to import from two

@@ -17,6 +17,10 @@ const root = path.resolve(__dirname, '..');
 const full = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_full.json'), 'utf-8'));
 const render = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_render.json'), 'utf-8'));
 const dropdownOptions = buildDropdownOptionsMap(render);
+const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
+const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
+const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders };
 
 let failures = 0;
 function fail(message) {
@@ -29,7 +33,7 @@ function ok(name, condition, detail) {
 }
 
 function validate(doc) {
-  return validateProcedure(doc, full, dropdownOptions);
+  return validateProcedure(doc, full, dropdownOptions, extras);
 }
 
 // --- 1. flat graph sample2-equivalent vs nested sample2: identical XML ---
@@ -220,6 +224,10 @@ for (const fv of ['1.0', 1, '1', 1.0]) {
         node_id: 'n1',
         block_id: 'controls_if',
         value_inputs: { IF0: 'n2' },
+        // Non-empty DO0 so this fixture doesn't also trip the (correct,
+        // unrelated) W011 "completely empty statement body" warning — this
+        // test is specifically about the OP dropdown value.
+        statement_inputs: { DO0: ['c'] },
       },
       {
         node_id: 'n2',
@@ -229,6 +237,7 @@ for (const fv of ['1.0', 1, '1', 1.0]) {
       },
       { node_id: 'a', block_id: 'math_number', fields: { NUM: '1' } },
       { node_id: 'b', block_id: 'math_number', fields: { NUM: '1' } },
+      { node_id: 'c', block_id: 'entity_despawn' },
     ],
   };
   const result = validate(doc);

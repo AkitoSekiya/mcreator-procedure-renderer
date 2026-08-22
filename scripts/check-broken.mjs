@@ -26,6 +26,10 @@ const root = path.resolve(__dirname, '..');
 const full = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_full.json'), 'utf-8'));
 const render = JSON.parse(readFileSync(path.join(root, 'public/reference/blocks_render.json'), 'utf-8'));
 const dropdownOptions = buildDropdownOptionsMap(render);
+const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
+const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
+const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders };
 
 let failures = 0;
 
@@ -35,7 +39,7 @@ function fail(message) {
 }
 
 function expectCode(name, doc, expectedCode) {
-  const result = validateProcedure(doc, full, dropdownOptions);
+  const result = validateProcedure(doc, full, dropdownOptions, extras);
   const codes = result.messages.map((m) => m.code);
   const found = codes.includes(expectedCode);
   console.log(`${name}: expected ${expectedCode} -> ${found ? 'OK' : 'MISSING'} (codes: ${codes.join(',') || '(none)'})`);
@@ -44,7 +48,7 @@ function expectCode(name, doc, expectedCode) {
 }
 
 function expectNoMessages(name, doc) {
-  const result = validateProcedure(doc, full, dropdownOptions);
+  const result = validateProcedure(doc, full, dropdownOptions, extras);
   const ok = result.messages.length === 0;
   console.log(
     `${name}: expected 0 messages -> ${ok ? 'OK' : 'FAIL'} (got: ${result.messages.map((m) => `${m.severity}:${m.code}`).join(',') || '(none)'})`,
@@ -124,6 +128,11 @@ function docWithBinaryOp(opValue) {
             },
           },
         },
+        // Non-empty DO0 so this fixture doesn't also trip the (correct,
+        // unrelated) W011 "completely empty statement body" warning — this
+        // test is specifically about the OP dropdown value, not statement
+        // completeness.
+        statement_inputs: { DO0: [{ node_id: 'n5', block_id: 'entity_despawn' }] },
       },
     ],
   };

@@ -44,6 +44,16 @@ function mutationXml(node: NormalizedNode): string {
     if (count === 0) return '';
     return `<mutation inputs="${count}"></mutation>`;
   }
+  if (/^variables_(get|set)_[a-z]+$/.test(node.blockId)) {
+    // Real MCreator shape, confirmed via mcreator_extensions.js's
+    // 'variable_entity_input' registerMutator (see src/lib/validate.ts's
+    // ValidationExtras doc comment and registerBlocks.ts's mirror of this
+    // mutator): ALWAYS present (never omitted, unlike call_procedure's),
+    // with is_player_var driving whether the "entity" input gets created on
+    // load.
+    const hasEntity = Object.prototype.hasOwnProperty.call(node.valueInputs, 'entity');
+    return `<mutation is_player_var="${node.isPlayerScopedVariable ? 'true' : 'false'}" has_entity="${hasEntity ? 'true' : 'false'}"></mutation>`;
+  }
   return '';
 }
 
@@ -147,6 +157,19 @@ function rootStackToXml(nodes: NormalizedNode[], stackIndex: number): string {
  * unconnected top-level block group alongside the main one.
  */
 export function procedureToXmlString(proc: NormalizedProcedure): string {
+  // Standard Blockly XML: a `<variables>` block declaring every workspace
+  // variable ahead of the block tree (confirmed for MCreator's own local-
+  // variable declarations via `javap` on net.mcreator.blockly.java.
+  // BlocklyToProcedure — see tools/extract_mcreator_metadata.py). `id` here
+  // doubles as the variable's stable name (matching what `<field
+  // name="VAR">local:name</field>`/`global:name` reference), same as
+  // real MCreator's `<variable type="..." id="name"/>` shape.
+  const variablesXml = proc.variables.length
+    ? `<variables>${proc.variables
+        .map((v) => `<variable type="${escapeAttr(v.blocklyType)}" id="${escapeAttr(v.name)}">${escapeText(v.name)}</variable>`)
+        .join('')}</variables>`
+    : '';
+
   const [mainStack, ...extraStacks] = proc.stacks;
   const mainXml = mainStack ? sequenceToXml(mainStack) : '';
 
@@ -164,7 +187,7 @@ export function procedureToXmlString(proc: NormalizedProcedure): string {
   // up on top of the main stack at Blockly's default origin.
   const extraXml = extraStacks.map((stack, i) => rootStackToXml(stack, i + 1)).join('');
 
-  return `<xml xmlns="https://developers.google.com/blockly/xml">${mainRootXml}${extraXml}</xml>`;
+  return `<xml xmlns="https://developers.google.com/blockly/xml">${variablesXml}${mainRootXml}${extraXml}</xml>`;
 }
 
 /** Recursively counts how many blocks a normalized procedure should produce

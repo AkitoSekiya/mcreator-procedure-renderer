@@ -17,7 +17,7 @@
 import type { FullReferenceData } from './referenceTypes';
 import type { RawProcedureDoc } from './inputTypes';
 import { KNOWN_NODE_KEYS } from './inputTypes';
-import type { ResolvedDoc, ResolvedNode, ResolvedTrigger } from './resolvedTypes';
+import type { ResolvedDoc, ResolvedNode, ResolvedTrigger, ResolvedVariableDecl } from './resolvedTypes';
 import type { ValidationMessage } from './messages';
 import { isDangerousKey, MAX_NESTING_DEPTH, MAX_TOP_LEVEL_BLOCKS } from './guards';
 
@@ -442,6 +442,93 @@ function resolveTrigger(raw: unknown, messages: ValidationMessage[]): ResolvedTr
   return { name: null, providedDeps: new Set() };
 }
 
+/** Structurally parses the top-level `variables` array (custom variable
+ * declarations): must be an array of `{name, type, scope, initial_value?}`
+ * objects with non-empty string name/type/scope. `type`/`scope` *values*
+ * aren't checked against variable_types.json/the known scope list here —
+ * that's validate.ts's job (E014), same division of labor as block_id/field
+ * validation. `initial_value` is passed through unexamined (see
+ * ResolvedVariableDecl's doc comment — it has no Blockly XML
+ * representation, this renderer never generates Java code).
+ *
+ * Duplicate-name detection (E015) is namespace-aware, not a flat check
+ * across the whole array: real MCreator resolves a `local:`-prefixed
+ * variable reference via this *procedure's own* declaration
+ * (net.mcreator.blockly.java.BlocklyVariables.processLocalVariables, parsing
+ * this procedure's own XML) but a non-local one via the *project-wide*
+ * variable pool (Workspace.getVariableElements()) — two entirely separate
+ * lookup paths (confirmed via `javap` on GetVariableBlock/SetVariableBlock —
+ * see tools/extract_mcreator_metadata.py). So a `local` variable and a
+ * `GLOBAL_MAP`/etc. variable sharing the same name are two different real
+ * variables, not a collision — only two declarations in the *same* namespace
+ * (both local, or both from the 5 non-local scopes, which all share the one
+ * project-wide pool) are an actual duplicate. */
+function resolveVariables(raw: unknown, messages: ValidationMessage[]): ResolvedVariableDecl[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    messages.push({
+      code: 'E002',
+      severity: 'error',
+      message: `variables は配列である必要があります（実際: ${JSON.stringify(raw)}）。`,
+    });
+    return [];
+  }
+  const decls: ResolvedVariableDecl[] = [];
+  const seenNamesByNamespace = new Set<string>();
+  raw.forEach((entry, idx) => {
+    if (!isPlainObject(entry)) {
+      messages.push({
+        code: 'E002',
+        severity: 'error',
+        message: `variables[${idx}] がオブジェクトではありません（実際: ${JSON.stringify(entry)}）。`,
+      });
+      return;
+    }
+    const { name, type, scope } = entry;
+    const initialValue = 'initial_value' in entry ? entry.initial_value : undefined;
+    if (typeof name !== 'string' || name.length === 0) {
+      messages.push({
+        code: 'E002',
+        severity: 'error',
+        message: `variables[${idx}].name が欠落しているか不正です。`,
+      });
+      return;
+    }
+    if (typeof type !== 'string' || type.length === 0) {
+      messages.push({
+        code: 'E002',
+        severity: 'error',
+        message: `variables["${name}"].type が欠落しているか不正です。`,
+      });
+      return;
+    }
+    if (typeof scope !== 'string' || scope.length === 0) {
+      messages.push({
+        code: 'E002',
+        severity: 'error',
+        message: `variables["${name}"].scope が欠落しているか不正です。`,
+      });
+      return;
+    }
+    // Namespace key: "local" variables live in this procedure's own pool;
+    // every other scope shares one project-wide pool (see doc comment
+    // above) — a bogus/unknown scope string still gets its own bucket here
+    // (harmless; validate.ts's E014 reports the real problem separately).
+    const namespace = scope === 'local' ? 'local' : 'global';
+    const dedupeKey = `${namespace}:${name}`;
+    if (seenNamesByNamespace.has(dedupeKey)) {
+      messages.push({
+        code: 'E015',
+        severity: 'error',
+        message: `変数名 "${name}" が ${namespace === 'local' ? 'local' : 'グローバル系（GLOBAL_*/PLAYER_*）'} スコープ内で重複しています（同一名前空間内でのみ重複とみなされ、localと他scopeは名前が衝突しません）。`,
+      });
+    }
+    seenNamesByNamespace.add(dedupeKey);
+    decls.push({ name, type, scope, initialValue });
+  });
+  return decls;
+}
+
 /** Normalizes any accepted input shape (nested, flat graph, or a mix) into a
  * ResolvedDoc. Returns `doc: null` only when the document is too malformed
  * to proceed at all (not an object, blocks not an array, etc) — otherwise
@@ -492,6 +579,7 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
   }
 
   const trigger = resolveTrigger(rawDoc.trigger, messages);
+  const variables = resolveVariables(rawDoc.variables, messages);
 
   if (!Array.isArray(rawDoc.blocks)) {
     messages.push({
@@ -679,6 +767,7 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
       trigger,
       stacks: finalStacks,
       mode,
+      variables,
     },
   };
 }

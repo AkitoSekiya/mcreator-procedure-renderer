@@ -65,6 +65,26 @@ export interface ResolvedTrigger {
  */
 export type InputMode = 'graph' | 'legacy';
 
+/** One entry of the top-level `variables` array (custom variable
+ * declaration) after structural (but not yet semantic) parsing. `type`/
+ * `scope` are passed through as raw strings — validate.ts checks them
+ * against variable_types.json/the 6 known scope ids (E016) since that's
+ * reference-data semantics, not structure. */
+export interface ResolvedVariableDecl {
+  name: string;
+  type: string;
+  scope: string;
+  /** Optional pass-through of `variables[].initial_value` (real MCreator
+   * data: net.mcreator.workspace.elements.VariableElement has a `value`
+   * field alongside name/type/scope — this is that same concept). Accepted
+   * for input-schema completeness but has no Blockly XML representation
+   * (Blockly's `<variable type="..." id="...">` declaration carries no
+   * default value at all — MCreator only consults this at Java codegen
+   * time, which this renderer never performs), so it does not affect
+   * rendering and isn't deeply type-validated against `type`. */
+  initialValue: unknown;
+}
+
 export interface ResolvedDoc {
   procedureName: string;
   mcreatorVersion: string | undefined;
@@ -79,4 +99,8 @@ export interface ResolvedDoc {
   stacks: ResolvedNode[][];
   /** Which mode normalizeInput detected for this document (see InputMode). */
   mode: InputMode;
+  /** Top-level `variables` declarations (custom variables), structurally
+   * parsed. Duplicate-name entries (E015) are all still included here in
+   * document order — validate.ts decides how to react to the duplicate. */
+  variables: ResolvedVariableDecl[];
 }

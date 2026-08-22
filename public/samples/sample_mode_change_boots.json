@@ -1,0 +1,49 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "mode_change_boots",
+  "description": "PLAYER_PERSISTENT scopeのNumber変数「mode」を取得し、0ならmodeを1に、それ以外なら0に切り替えるトグル例（アイテム右クリックで実行）",
+  "trigger": "player_right_click_item",
+  "variables": [{ "name": "mode", "type": "number", "scope": "PLAYER_PERSISTENT", "initial_value": 0 }],
+  "blocks": [
+    {
+      "node_id": "root_if",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp",
+          "block_id": "math_binary_ops",
+          "fields": { "OP": "EQ" },
+          "value_inputs": {
+            "A": {
+              "node_id": "get_mode",
+              "block_id": "variables_get_number",
+              "fields": { "VAR": "mode" },
+              "value_inputs": { "entity": { "node_id": "e1", "block_id": "entity_from_deps" } }
+            },
+            "B": { "node_id": "zero", "block_id": "math_number", "fields": { "NUM": "0" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["set_mode_1"], "ELSE": ["set_mode_0"] }
+    },
+    {
+      "node_id": "set_mode_1",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "mode" },
+      "value_inputs": {
+        "VAL": { "node_id": "one", "block_id": "math_number", "fields": { "NUM": "1" } },
+        "entity": { "node_id": "e2", "block_id": "entity_from_deps" }
+      }
+    },
+    {
+      "node_id": "set_mode_0",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "mode" },
+      "value_inputs": {
+        "VAL": { "node_id": "zero2", "block_id": "math_number", "fields": { "NUM": "0" } },
+        "entity": { "node_id": "e3", "block_id": "entity_from_deps" }
+      }
+    }
+  ]
+}
