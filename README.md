@@ -51,10 +51,11 @@ npm run check-mcreator-features # 変数（9型×6スコープ）・trigger自�
 npm run check-variables         # ↑と同じファイル（scripts/check-mcreator-features.mjs）を実行するエイリアス
 npm run check-selectors         # mcitem_allblocks/mcitem_allセレクタの検証・接続・round-trip検証
 npm run check-entity-types      # logic_entity_compare（エンティティ種類判定）の検証・接続・round-trip検証
+npm run check-deep-nesting      # 深いネスト・大規模プロシージャ（Lesson 9規模）の検証・接続・round-trip検証
 ```
 
 `.github/workflows/ci.yml` が `push`/`pull_request` のたびに `check-mcreator-features`（`check-variables` と同一）
-を含む上記8コマンド全てとPDFレイアウト検証を自動実行します
+を含む上記9コマンド全てとPDFレイアウト検証を自動実行します
 （`.github/workflows/deploy.yml` はビルド＋GitHub Pagesデプロイ専任で、テストは実行しません）。
 
 ## GitHub Pages への公開手順
@@ -697,16 +698,19 @@ scripts/
                                 # Lesson 9相当サンプル（sample_lesson9_circle_blocks.json）のround-trip検証
   check-entity-types.mjs       # logic_entity_compare（エンティティ種類判定）のJSON検証・接続・
                                 # ラウンドトリップ・sample_entity_is_creeper.json の検証
+  check-deep-nesting.mjs       # 多段ネスト・大規模プロシージャの検証（local変数8個・controls_if/
+                                # controls_repeat_extの多重ネスト・深い数式ネスト・ノード数上限余裕確認）・
+                                # sample_lesson9_trig_dome.json のround-trip検証
 .github/workflows/
-  ci.yml            # push/PR毎にtypecheck + check-*系8本 + check-pdf-layoutを実行
+  ci.yml            # push/PR毎にtypecheck + check-*系9本 + check-pdf-layoutを実行
   deploy.yml        # mainへのpush時にビルド＋GitHub Pagesデプロイ（テストは実行しない）
 ```
 
 `public/samples/` はUI上の「サンプル」選択機能としては提供していません（UIの簡素化のため削除）。
 `npm run check-samples` / `npm run check-graph` / `npm run check-mcreator-features` /
-`npm run check-selectors` / `npm run check-entity-types`
+`npm run check-selectors` / `npm run check-entity-types` / `npm run check-deep-nesting`
 から引き続き参照される、検証ロジックの回帰テスト用データとして残しています
-（カスタム変数サンプル5種・Lesson 9相当サンプル1種・エンティティ種類判定サンプル1種を含む）。
+（カスタム変数サンプル5種・Lesson 9相当サンプル2種・エンティティ種類判定サンプル1種を含む）。
 
 ### 正規化と検証の分離（`src/lib/`）
 

@@ -45,5 +45,8 @@ jobs:
       - name: Check entity-type judgment (logic_entity_compare)
         run: npm run check-entity-types
 
+      - name: Check deep nesting / large procedures (Lesson 9 scale)
+        run: npm run check-deep-nesting
+
       - name: Check PDF layout
         run: npm run check-pdf-layout

@@ -1,0 +1,403 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "lesson9_trig_dome",
+  "description": "Lesson9相当の三角関数ドーム生成プロシージャ。local Number変数8個（center,r,h,a,b,x,y,z）、多段ネストのcontrols_if、二重ネストのcontrols_repeat_ext（30回×5回）、math_dual_opsの+-*/深いネスト、math_singular_opsのsin/cos/asin/DEG to RAD/RAD to DEGすべて、NOT（logic_negate）、ブロック比較（compare_blockstates）、座標取得（coord_x/y/z）、ブロック配置（block_add、mcitem_allblocksセレクタ）、エンティティ生成（spawn_entity）、同一local変数の複数箇所参照、statement_inputsの複数ステートメント配列とnextチェーンの併用を、すべて実データに基づく正式なblock_id/fields/value_inputsのみで構成する回帰テスト用サンプル。",
+  "trigger": "player_right_click_item",
+  "variables": [
+    { "name": "center", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "r", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "h", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "a", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "b", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "x", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "y", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "z", "type": "number", "scope": "local", "initial_value": 0 }
+  ],
+  "blocks": [
+    {
+      "node_id": "set_center_init",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "center" },
+      "value_inputs": { "VAL": { "node_id": "center_init", "block_id": "math_number", "fields": { "NUM": "-10" } } },
+      "next": "root_if"
+    },
+    {
+      "node_id": "root_if",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp_center",
+          "block_id": "math_binary_ops",
+          "fields": { "OP": "LTE" },
+          "value_inputs": {
+            "A": { "node_id": "get_center1", "block_id": "variables_get_number", "fields": { "VAR": "center" } },
+            "B": { "node_id": "neg4", "block_id": "math_number", "fields": { "NUM": "-4" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["set_r"], "ELSE": ["else_msg"] }
+    },
+    {
+      "node_id": "else_msg",
+      "block_id": "entity_send_chat",
+      "value_inputs": {
+        "text": { "node_id": "else_txt", "block_id": "text", "fields": { "TEXT": "center is not low enough yet" } },
+        "actbar": { "node_id": "else_actbar", "block_id": "logic_boolean", "fields": { "BOOL": "FALSE" } },
+        "entity": { "node_id": "else_e", "block_id": "entity_from_deps" }
+      }
+    },
+    {
+      "node_id": "set_r",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "r" },
+      "value_inputs": { "VAL": { "node_id": "r5", "block_id": "math_number", "fields": { "NUM": "5" } } },
+      "next": "set_h"
+    },
+    {
+      "node_id": "set_h",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "h" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "h_add",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "get_center2", "block_id": "variables_get_number", "fields": { "VAR": "center" } },
+            "B": { "node_id": "ten", "block_id": "math_number", "fields": { "NUM": "10" } }
+          }
+        }
+      },
+      "next": "set_b_asin"
+    },
+    {
+      "node_id": "set_b_asin",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "b" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "asin_calc",
+          "block_id": "math_singular_ops",
+          "fields": { "OP": "ASIN" },
+          "value_inputs": {
+            "NUM": {
+              "node_id": "h_div_r",
+              "block_id": "math_dual_ops",
+              "fields": { "OP": "DIVIDE" },
+              "value_inputs": {
+                "A": { "node_id": "get_h1", "block_id": "variables_get_number", "fields": { "VAR": "h" } },
+                "B": { "node_id": "get_r1", "block_id": "variables_get_number", "fields": { "VAR": "r" } }
+              }
+            }
+          }
+        }
+      },
+      "next": "set_a_deg2rad"
+    },
+    {
+      "node_id": "set_a_deg2rad",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "a" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "deg2rad_calc",
+          "block_id": "math_singular_ops",
+          "fields": { "OP": "DEG2RAD" },
+          "value_inputs": { "NUM": { "node_id": "thirty_deg", "block_id": "math_number", "fields": { "NUM": "30" } } }
+        }
+      },
+      "next": "set_y_rad2deg"
+    },
+    {
+      "node_id": "set_y_rad2deg",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "y" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "rad2deg_calc",
+          "block_id": "math_singular_ops",
+          "fields": { "OP": "RAD2DEG" },
+          "value_inputs": { "NUM": { "node_id": "get_b1", "block_id": "variables_get_number", "fields": { "VAR": "b" } } }
+        }
+      },
+      "next": "loop30"
+    },
+    {
+      "node_id": "loop30",
+      "block_id": "controls_repeat_ext",
+      "value_inputs": { "TIMES": { "node_id": "times30", "block_id": "math_number", "fields": { "NUM": "30" } } },
+      "statement_inputs": { "DO": ["inner_if_1"] },
+      "next": "final_if"
+    },
+    {
+      "node_id": "inner_if_1",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp_r_pos",
+          "block_id": "math_binary_ops",
+          "fields": { "OP": "GT" },
+          "value_inputs": {
+            "A": { "node_id": "get_r2", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": { "node_id": "zero1", "block_id": "math_number", "fields": { "NUM": "0" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["set_x", "set_z", "inner_if_2"] }
+    },
+    {
+      "node_id": "set_x",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "x" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "x_mul",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "MULTIPLY" },
+          "value_inputs": {
+            "A": { "node_id": "get_r3", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": {
+              "node_id": "cos_a1",
+              "block_id": "math_singular_ops",
+              "fields": { "OP": "COS" },
+              "value_inputs": { "NUM": { "node_id": "get_a1", "block_id": "variables_get_number", "fields": { "VAR": "a" } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "node_id": "set_z",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "z" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "z_mul",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "MULTIPLY" },
+          "value_inputs": {
+            "A": { "node_id": "get_r4", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": {
+              "node_id": "sin_a1",
+              "block_id": "math_singular_ops",
+              "fields": { "OP": "SIN" },
+              "value_inputs": { "NUM": { "node_id": "get_a2", "block_id": "variables_get_number", "fields": { "VAR": "a" } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "node_id": "inner_if_2",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "not_x_neg",
+          "block_id": "logic_negate",
+          "value_inputs": {
+            "BOOL": {
+              "node_id": "cmp_x_neg",
+              "block_id": "math_binary_ops",
+              "fields": { "OP": "LT" },
+              "value_inputs": {
+                "A": { "node_id": "get_x1", "block_id": "variables_get_number", "fields": { "VAR": "x" } },
+                "B": { "node_id": "zero2", "block_id": "math_number", "fields": { "NUM": "0" } }
+              }
+            }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["loop5"], "ELSE": ["skip_msg"] }
+    },
+    {
+      "node_id": "skip_msg",
+      "block_id": "entity_send_chat",
+      "value_inputs": {
+        "text": { "node_id": "skip_txt", "block_id": "text", "fields": { "TEXT": "skipping negative x side" } },
+        "actbar": { "node_id": "skip_actbar", "block_id": "logic_boolean", "fields": { "BOOL": "TRUE" } },
+        "entity": { "node_id": "skip_e", "block_id": "entity_from_deps" }
+      }
+    },
+    {
+      "node_id": "loop5",
+      "block_id": "controls_repeat_ext",
+      "value_inputs": { "TIMES": { "node_id": "times5", "block_id": "math_number", "fields": { "NUM": "5" } } },
+      "statement_inputs": { "DO": ["set_r_dec"] }
+    },
+    {
+      "node_id": "set_r_dec",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "r" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "r_minus",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "MINUS" },
+          "value_inputs": {
+            "A": { "node_id": "get_r5", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": { "node_id": "one1", "block_id": "math_number", "fields": { "NUM": "1" } }
+          }
+        }
+      },
+      "next": "set_a_inc"
+    },
+    {
+      "node_id": "set_a_inc",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "a" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "a_plus",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "get_a3", "block_id": "variables_get_number", "fields": { "VAR": "a" } },
+            "B": { "node_id": "twelve", "block_id": "math_number", "fields": { "NUM": "12" } }
+          }
+        }
+      },
+      "next": "set_center_inc"
+    },
+    {
+      "node_id": "set_center_inc",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "center" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "center_plus",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "get_center3", "block_id": "variables_get_number", "fields": { "VAR": "center" } },
+            "B": { "node_id": "point3", "block_id": "math_number", "fields": { "NUM": "0.3" } }
+          }
+        }
+      }
+    },
+    {
+      "node_id": "final_if",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp_block_air",
+          "block_id": "compare_blockstates",
+          "value_inputs": {
+            "a": {
+              "node_id": "block_at_dest",
+              "block_id": "world_data_blockat",
+              "value_inputs": {
+                "x": {
+                  "node_id": "world_x1",
+                  "block_id": "math_dual_ops",
+                  "fields": { "OP": "ADD" },
+                  "value_inputs": {
+                    "A": { "node_id": "cx1", "block_id": "coord_x" },
+                    "B": { "node_id": "get_x2", "block_id": "variables_get_number", "fields": { "VAR": "x" } }
+                  }
+                },
+                "y": {
+                  "node_id": "world_y1",
+                  "block_id": "math_dual_ops",
+                  "fields": { "OP": "ADD" },
+                  "value_inputs": {
+                    "A": { "node_id": "cy1", "block_id": "coord_y" },
+                    "B": { "node_id": "get_h2", "block_id": "variables_get_number", "fields": { "VAR": "h" } }
+                  }
+                },
+                "z": {
+                  "node_id": "world_z1",
+                  "block_id": "math_dual_ops",
+                  "fields": { "OP": "ADD" },
+                  "value_inputs": {
+                    "A": { "node_id": "cz1", "block_id": "coord_z" },
+                    "B": { "node_id": "get_z2", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+                  }
+                }
+              }
+            },
+            "b": { "node_id": "air_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.AIR" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["place_marker"] }
+    },
+    {
+      "node_id": "place_marker",
+      "block_id": "block_add",
+      "value_inputs": {
+        "block": { "node_id": "ice_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.ICE" } },
+        "x": {
+          "node_id": "world_x2",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cx2", "block_id": "coord_x" },
+            "B": { "node_id": "get_x3", "block_id": "variables_get_number", "fields": { "VAR": "x" } }
+          }
+        },
+        "y": {
+          "node_id": "world_y2",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cy2", "block_id": "coord_y" },
+            "B": { "node_id": "get_h3", "block_id": "variables_get_number", "fields": { "VAR": "h" } }
+          }
+        },
+        "z": {
+          "node_id": "world_z2",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cz2", "block_id": "coord_z" },
+            "B": { "node_id": "get_z3", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+          }
+        }
+      },
+      "next": "spawn_marker"
+    },
+    {
+      "node_id": "spawn_marker",
+      "block_id": "spawn_entity",
+      "fields": { "entity": "EntityArmorStand" },
+      "value_inputs": {
+        "x": {
+          "node_id": "world_x3",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cx3", "block_id": "coord_x" },
+            "B": { "node_id": "get_x4", "block_id": "variables_get_number", "fields": { "VAR": "x" } }
+          }
+        },
+        "y": {
+          "node_id": "world_y3",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cy3", "block_id": "coord_y" },
+            "B": {
+              "node_id": "h_plus_one",
+              "block_id": "math_dual_ops",
+              "fields": { "OP": "ADD" },
+              "value_inputs": {
+                "A": { "node_id": "get_h4", "block_id": "variables_get_number", "fields": { "VAR": "h" } },
+                "B": { "node_id": "one2", "block_id": "math_number", "fields": { "NUM": "1" } }
+              }
+            }
+          }
+        },
+        "z": {
+          "node_id": "world_z3",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "cz3", "block_id": "coord_z" },
+            "B": { "node_id": "get_z4", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+          }
+        }
+      }
+    }
+  ]
+}
