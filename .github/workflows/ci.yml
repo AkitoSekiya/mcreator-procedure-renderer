@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Check samples
+        run: npm run check-samples
+
+      - name: Check broken-input handling
+        run: npm run check-broken
+
+      - name: Check graph-format normalization
+        run: npm run check-graph
+
+      - name: Check MCreator 2025.1 compatibility (guards, mutators, samples)
+        run: npm run check-compat
+
+      - name: Check PDF layout
+        run: npm run check-pdf-layout

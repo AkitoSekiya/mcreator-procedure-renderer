@@ -17,6 +17,7 @@ import { normalizeInput } from './normalizeInput';
 import type { NormalizedNode, NormalizedProcedure } from './normalizedTypes';
 import { findDropdownOptions, type DropdownOptionsMap } from './dropdownOptions';
 import type { ValidationMessage } from './messages';
+import { isDangerousKey, MAX_INPUT_JSON_LENGTH } from './guards';
 
 export type { Severity, ValidationMessage } from './messages';
 
@@ -83,6 +84,15 @@ export function isCheckCompatible(
 /** Step 1: JSON.parse with E001 on failure. Kept separate so callers can
  * show a parse error before ever touching schema validation. */
 export function parseJson(text: string): { data: unknown } | { error: ValidationMessage } {
+  if (text.length > MAX_INPUT_JSON_LENGTH) {
+    return {
+      error: {
+        code: 'E011',
+        severity: 'error',
+        message: `入力テキストが大きすぎます（${text.length}文字、上限${MAX_INPUT_JSON_LENGTH}文字）。`,
+      },
+    };
+  }
   try {
     return { data: JSON.parse(text) };
   } catch (e) {
@@ -115,6 +125,7 @@ interface Ctx {
   seenIds: Set<string>;
   depsUsed: Set<string>;
   requiredApiBlocksReported: Set<string>; // nodeId set, avoid double I002 per node
+  requiredApisUsed: Set<string>; // procedure-wide aggregate, for I003
 }
 
 function pushMsg(ctx: Ctx, msg: ValidationMessage): void {
@@ -240,6 +251,7 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
 
   if (def.required_apis && def.required_apis.length > 0 && !ctx.requiredApiBlocksReported.has(nodeId)) {
     ctx.requiredApiBlocksReported.add(nodeId);
+    for (const api of def.required_apis) ctx.requiredApisUsed.add(api);
     pushMsg(ctx, {
       code: 'I002',
       severity: 'info',
@@ -252,6 +264,16 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
   // --- fields ---
   const fields: Record<string, string> = {};
   for (const [key, value] of Object.entries(node.fieldsRaw)) {
+    if (isDangerousKey(key)) {
+      pushMsg(ctx, {
+        code: 'E010',
+        severity: 'error',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の fields キー "${key}" は予約済みのキー名のため使用できません。`,
+        nodeId,
+        blockId,
+      });
+      continue;
+    }
     const fieldDef = def.fields.find((f) => f.name === key);
     if (!fieldDef) {
       if (matchesDynamicPattern(DYNAMIC_FIELD_PATTERNS, blockId, key)) {
@@ -329,6 +351,19 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
           blockId,
         });
       }
+    } else if (fieldDef.type === 'field_number' && strValue.length > 0 && !Number.isFinite(Number(strValue))) {
+      // field_number fields (blocks_full.json/blocks_render.json declare the
+      // type explicitly, e.g. get_command_parameters.paramid) render via
+      // Blockly's FieldNumber, which coerces non-numeric text to 0 silently —
+      // catching this here surfaces the likely-unintended value instead of
+      // letting it silently become "0" in the rendered block.
+      pushMsg(ctx, {
+        code: 'W009',
+        severity: 'warn',
+        message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}"（field_number）の値 "${strValue}" は数値として解釈できません。`,
+        nodeId,
+        blockId,
+      });
     }
   }
 
@@ -392,7 +427,63 @@ function validateNode(ctx: Ctx, node: ResolvedNode, expectedShape: 'statement' |
     statementInputs[key] = children;
   }
 
+  if (blockId === 'call_procedure') {
+    checkCallProcedureArgContiguity(ctx, node, fields, valueInputs);
+  }
+
   return { nodeId, blockId, fields, valueInputs, statementInputs };
+}
+
+/** call_procedure's dynamic `argN`/`nameN` pairs (README/SPEC's documented
+ * mutator-added names, applied via src/blockly/registerBlocks.ts's own
+ * domToMutation for that block — see its comment for why: the real MCreator
+ * mutator implementation isn't captured in blocks_render.json at all, since
+ * call_procedure is "source": "js-imperative" in blocks_full.json) only
+ * produce a well-formed `<mutation inputs="N">` (and thus N real argN input
+ * slots once loaded) when the indices used are contiguous from 0. A gap
+ * (e.g. arg0 + arg2 but no arg1) silently renumbers/misaligns which
+ * value_input each argN slot actually receives, since the mutator only knows
+ * a *count*, not which specific indices were supplied — worth flagging even
+ * though it doesn't prevent rendering. */
+function checkCallProcedureArgContiguity(
+  ctx: Ctx,
+  node: ResolvedNode,
+  fields: Record<string, string>,
+  valueInputs: Record<string, NormalizedNode>,
+): void {
+  const argIndices = Object.keys(valueInputs)
+    .map((k) => /^arg(\d+)$/.exec(k))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]));
+  const nameIndices = Object.keys(fields)
+    .map((k) => /^name(\d+)$/.exec(k))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]));
+
+  const isContiguousFromZero = (indices: number[]): boolean => {
+    if (indices.length === 0) return true;
+    const sorted = [...new Set(indices)].sort((a, b) => a - b);
+    return sorted.length === indices.length && sorted.every((v, i) => v === i);
+  };
+
+  if (!isContiguousFromZero(argIndices)) {
+    pushMsg(ctx, {
+      code: 'W008',
+      severity: 'warn',
+      message: `ノード ${node.nodeId}（block_id: call_procedure）の動的引数 value_inputs["argN"] の番号が0始まりの連番ではありません（実際: ${JSON.stringify([...argIndices].sort((a, b) => a - b))}）。`,
+      nodeId: node.nodeId,
+      blockId: 'call_procedure',
+    });
+  }
+  if (!isContiguousFromZero(nameIndices)) {
+    pushMsg(ctx, {
+      code: 'W008',
+      severity: 'warn',
+      message: `ノード ${node.nodeId}（block_id: call_procedure）の動的引数名 fields["nameN"] の番号が0始まりの連番ではありません（実際: ${JSON.stringify([...nameIndices].sort((a, b) => a - b))}）。`,
+      nodeId: node.nodeId,
+      blockId: 'call_procedure',
+    });
+  }
 }
 
 export function validateProcedure(
@@ -413,6 +504,7 @@ export function validateProcedure(
     seenIds: new Set(),
     depsUsed: new Set(),
     requiredApiBlocksReported: new Set(),
+    requiredApisUsed: new Set(),
   };
 
   const stacks: NormalizedNode[][] = doc.stacks.map((stack) =>
@@ -427,6 +519,17 @@ export function validateProcedure(
       code: 'W001',
       severity: 'warn',
       message: `このプロシージャは次の依存関係を要求: ${missingDeps.sort().join(', ')}（トリガーが提供しない場合MCreatorで警告）`,
+    });
+  }
+
+  // Procedure-wide aggregate of every required_apis entry across all used
+  // blocks (I002 already reports per-node; this is the "プロシージャ単位"
+  // summary requested alongside it — one line covering the whole document).
+  if (ctx.requiredApisUsed.size > 0) {
+    ctx.messages.push({
+      code: 'I003',
+      severity: 'info',
+      message: `このプロシージャ全体で必要な追加API: ${[...ctx.requiredApisUsed].sort().join(', ')}`,
     });
   }
 

@@ -19,6 +19,7 @@ import type { RawProcedureDoc } from './inputTypes';
 import { KNOWN_NODE_KEYS } from './inputTypes';
 import type { ResolvedDoc, ResolvedNode, ResolvedTrigger } from './resolvedTypes';
 import type { ValidationMessage } from './messages';
+import { isDangerousKey, MAX_NESTING_DEPTH, MAX_TOP_LEVEL_BLOCKS } from './guards';
 
 const EXPECTED_MCREATOR_VERSION = '2025.1';
 
@@ -84,8 +85,14 @@ function isStructurallyResolvable(node: unknown): node is Record<string, unknown
  * fine: we only need edges *out of* nodes that exist, and inline objects are
  * walked in place since they aren't otherwise reachable).
  */
-function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>): void {
+function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>, depth = 0): void {
   if (!isStructurallyResolvable(node)) return;
+  // Depth guard mirrors resolveNode's MAX_NESTING_DEPTH check below — this
+  // pass runs *before* resolution (to build the reference graph) and walks
+  // the same inline-object structure, so it needs its own bound to avoid a
+  // stack overflow on pathological input. resolveNode's own guard is what
+  // actually reports E012 to the user; this one just needs to not crash.
+  if (depth > MAX_NESTING_DEPTH) return;
   const nid = ownNodeId(node);
 
   for (const key of Object.keys(node)) {
@@ -95,11 +102,12 @@ function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>): vo
   const valueInputs = node.value_inputs;
   if (isPlainObject(valueInputs)) {
     for (const [key, val] of Object.entries(valueInputs)) {
+      if (isDangerousKey(key)) continue; // reported by resolveNode's own pass (E010)
       const slotKey = `V:${nid}:${key}`;
       if (typeof val === 'string') {
         edges.push({ targetId: val, tier: 0, sourceNodeId: nid, slotKey, sourceLabel: `ノード ${nid} の value_inputs["${key}"]` });
       } else if (isPlainObject(val)) {
-        collectRefs(val, edges, unknownKeys);
+        collectRefs(val, edges, unknownKeys, depth + 1);
       }
     }
   }
@@ -107,6 +115,7 @@ function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>): vo
   const statementInputs = node.statement_inputs;
   if (isPlainObject(statementInputs)) {
     for (const [key, rawVal] of Object.entries(statementInputs)) {
+      if (isDangerousKey(key)) continue; // reported by resolveNode's own pass (E010)
       const arr = toArrayValue(rawVal);
       arr.forEach((item, idx) => {
         const slotKey = `S:${nid}:${key}:${idx}`;
@@ -119,7 +128,7 @@ function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>): vo
             sourceLabel: `ノード ${nid} の statement_inputs["${key}"][${idx}]`,
           });
         } else if (isPlainObject(item)) {
-          collectRefs(item, edges, unknownKeys);
+          collectRefs(item, edges, unknownKeys, depth + 1);
         }
       });
     }
@@ -129,7 +138,7 @@ function collectRefs(node: unknown, edges: Edge[], unknownKeys: Set<string>): vo
   if (typeof next === 'string') {
     edges.push({ targetId: next, tier: 2, sourceNodeId: nid, slotKey: `N:${nid}`, sourceLabel: `ノード ${nid} の next` });
   } else if (isPlainObject(next)) {
-    collectRefs(next, edges, unknownKeys);
+    collectRefs(next, edges, unknownKeys, depth + 1);
   }
 }
 
@@ -241,6 +250,16 @@ function resolveNode(raw: unknown, path: ReadonlySet<string>, ctx: ResolveCtx): 
     return null;
   }
 
+  if (path.size >= MAX_NESTING_DEPTH) {
+    ctx.messages.push({
+      code: 'E012',
+      severity: 'error',
+      message: `ノード ${nodeId} でネストの深さが上限（${MAX_NESTING_DEPTH}）を超えました。異常に深いvalue_inputs/statement_inputs/nextの入れ子、または巨大な入力が疑われます。`,
+      nodeId,
+    });
+    return null;
+  }
+
   if (typeof block_id !== 'string' || block_id.length === 0) {
     ctx.messages.push({
       code: 'E002',
@@ -283,6 +302,16 @@ function resolveNode(raw: unknown, path: ReadonlySet<string>, ctx: ResolveCtx): 
       });
     } else {
       for (const [key, val] of Object.entries(raw.value_inputs)) {
+        if (isDangerousKey(key)) {
+          ctx.messages.push({
+            code: 'E010',
+            severity: 'error',
+            message: `ノード ${nodeId}（block_id: ${blockId}）の value_inputs キー "${key}" は予約済みのキー名のため使用できません。`,
+            nodeId,
+            blockId,
+          });
+          continue;
+        }
         const slotKey = `V:${nodeId}:${key}`;
         const child = resolveSlot(val, slotKey, newPath, ctx);
         if (child) valueInputs[key] = child;
@@ -302,6 +331,16 @@ function resolveNode(raw: unknown, path: ReadonlySet<string>, ctx: ResolveCtx): 
       });
     } else {
       for (const [key, rawVal] of Object.entries(raw.statement_inputs)) {
+        if (isDangerousKey(key)) {
+          ctx.messages.push({
+            code: 'E010',
+            severity: 'error',
+            message: `ノード ${nodeId}（block_id: ${blockId}）の statement_inputs キー "${key}" は予約済みのキー名のため使用できません。`,
+            nodeId,
+            blockId,
+          });
+          continue;
+        }
         const arr = toArrayValue(rawVal);
         const children: ResolvedNode[] = [];
         arr.forEach((item, idx) => {
@@ -459,6 +498,15 @@ export function normalizeInput(raw: unknown, ref: FullReferenceData): NormalizeI
       code: 'E002',
       severity: 'error',
       message: 'blocks は配列である必要があります。',
+    });
+    return { messages, doc: null };
+  }
+
+  if (rawDoc.blocks.length > MAX_TOP_LEVEL_BLOCKS) {
+    messages.push({
+      code: 'E011',
+      severity: 'error',
+      message: `blocks 配列の要素数（${rawDoc.blocks.length}）が上限（${MAX_TOP_LEVEL_BLOCKS}）を超えています。`,
     });
     return { messages, doc: null };
   }
