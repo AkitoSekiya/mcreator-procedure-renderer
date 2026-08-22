@@ -1,5 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { FullReferenceData, RenderReferenceData, VariableTypesData, TriggersData, IteratorProvidersData } from '../lib/referenceTypes';
+import type {
+  FullReferenceData,
+  RenderReferenceData,
+  VariableTypesData,
+  TriggersData,
+  IteratorProvidersData,
+  EntityTypesData,
+} from '../lib/referenceTypes';
 import { buildDropdownOptionsMap, type DropdownOptionsMap } from '../lib/dropdownOptions';
 import { registerBlocks } from '../blockly/registerBlocks';
 import type { ValidationExtras } from '../lib/validate';
@@ -56,10 +63,14 @@ function loadReferenceData(): Promise<ReferenceData> {
         if (!r.ok) throw new Error(`iterator_providers.json の取得に失敗しました (HTTP ${r.status})`);
         return r.json() as Promise<IteratorProvidersData>;
       }),
-    ]).then(([full, render, variableTypes, triggers, iteratorProviders]) => {
+      fetch(`${base}reference/entity_types.json`).then((r) => {
+        if (!r.ok) throw new Error(`entity_types.json の取得に失敗しました (HTTP ${r.status})`);
+        return r.json() as Promise<EntityTypesData>;
+      }),
+    ]).then(([full, render, variableTypes, triggers, iteratorProviders, entityTypes]) => {
       registerBlocks(render, base, variableTypes);
       const dropdownOptions = buildDropdownOptionsMap(render);
-      return { full, render, dropdownOptions, extras: { variableTypes, triggers, iteratorProviders } };
+      return { full, render, dropdownOptions, extras: { variableTypes, triggers, iteratorProviders, entityTypes } };
     });
   }
   return loadPromise;

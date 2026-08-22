@@ -2436,7 +2436,7 @@
   },
   {
    "type": "direction_foreach",
-   "message0": "％1 として各方向に対して ％2 を実行 %1 %2",
+   "message0": "%1 として各方向に対して %2 を実行",
    "args0": [
     {
      "type": "input_value",
@@ -2455,7 +2455,7 @@
   },
   {
    "type": "direction_foreach_horizontal",
-   "message0": "％1 として各水平方向に対して ％2 を実行します %1 %2",
+   "message0": "%1 として各水平方向に対して %2 を実行します",
    "args0": [
     {
      "type": "input_value",

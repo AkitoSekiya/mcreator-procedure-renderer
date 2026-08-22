@@ -3994,8 +3994,8 @@
    "has_prev_next": true,
    "inputs_inline": true,
    "label_en": "For each direction as %1 do %2",
-   "label_ja": "％1 として各方向に対して ％2 を実行",
-   "label_rendered": "％1 として各方向に対して ％2 を実行",
+   "label_ja": "%1 として各方向に対して %2 を実行",
+   "label_rendered": "⬡_placeholder:Direction として各方向に対して ⊏do:foreach⊐ を実行",
    "tooltip_en": null,
    "tooltip_ja": null,
    "side": null,
@@ -4027,8 +4027,8 @@
    "has_prev_next": true,
    "inputs_inline": true,
    "label_en": "For each horizontal direction as %1 do %2",
-   "label_ja": "％1 として各水平方向に対して ％2 を実行します",
-   "label_rendered": "％1 として各水平方向に対して ％2 を実行します",
+   "label_ja": "%1 として各水平方向に対して %2 を実行します",
+   "label_rendered": "⬡_placeholder:Direction として各水平方向に対して ⊏do:foreach⊐ を実行します",
    "tooltip_en": null,
    "tooltip_ja": null,
    "side": null,
@@ -13408,7 +13408,7 @@
    "label_ja": "%1 が%2のエンティティの (サブ) タイプかどうか",
    "label_rendered": "⬡compareTo:Entity が▼<entity選択>のエンティティの (サブ) タイプかどうか",
    "tooltip_en": null,
-   "tooltip_ja": null,
+   "tooltip_ja": "対象EntityがCreeper・Zombie・Skeleton等の特定のバニラ/カスタムエンティティ種類（またはそのサブタイプ）かどうかを判定する、MCreator公式のエンティティ種類判定ブロック。",
    "side": null,
    "value_inputs": [
     {
@@ -13428,7 +13428,7 @@
    "dependencies": [],
    "required_apis": null,
    "visual_description_ja": "色: #5B80A6（青系・色相210°） / 値ブロック：横長・角丸。左端に六角形/パズル型の差し込みコネクタがあり、他ブロックの入力スロットにはめ込む。上下の接続はない。 / 出力型: Boolean（論理値(true/false)）のスロットにのみ接続可能",
-   "use_case_ja": "取得値を他ブロックの入力スロットへ差し込んで使う。"
+   "use_case_ja": "「対象EntityがCreeperかどうか」「Zombieかどうか」「Skeletonかどうか」等、特定のエンティティ種類（バニラ・カスタムMOD問わず）を判定するための公式ブロック。fields.entityに\"Entity\"+クラス名相当のキー（例: EntityCreeper, EntityZombie, EntitySkeleton。entity_types.jsonに一覧あり）を指定し、value_inputs.compareToに判定対象のEntity値（例: entity_from_deps）を接続する。if文の条件などに使う。entity_check_creature_typeの広いカテゴリ判定（UNDEAD/ARTHROPOD等）とは別物で、こちらが個別エンティティ種類の判定に使う本来のブロック。"
   },
   "loot_table_foreach": {
    "id": "loot_table_foreach",
@@ -17782,8 +17782,11 @@
    "colour_hex": "#A6A65B",
    "colour_name_ja": "オリーブ（黄土色）",
    "shape": "value",
-   "output_type": "any",
-   "output_type_ja": "any",
+   "output_type": [
+    "MCItemBlock",
+    "BlockStateProvider"
+   ],
+   "output_type_ja": "ブロック/ブロックステートプロバイダ",
    "has_prev_next": false,
    "inputs_inline": false,
    "label_en": "Block selector",
@@ -17794,10 +17797,17 @@
    "side": null,
    "value_inputs": [],
    "statement_inputs": [],
-   "fields": [],
+   "fields": [
+    {
+     "name": "value",
+     "type": "field_mcitem_selector",
+     "datalist": "allblocks",
+     "options": null
+    }
+   ],
    "dependencies": [],
    "required_apis": null,
-   "visual_description_ja": "色: #A6A65B（オリーブ（黄土色）系・色相60°） / 値ブロック：横長・角丸。左端に六角形/パズル型の差し込みコネクタがあり、他ブロックの入力スロットにはめ込む。上下の接続はない。 / 出力型: any（any）のスロットにのみ接続可能",
+   "visual_description_ja": "色: #A6A65B（オリーブ（黄土色）系・色相60°） / 値ブロック：横長・角丸。左端に六角形/パズル型の差し込みコネクタがあり、他ブロックの入力スロットにはめ込む。上下の接続はない。 / 出力型: MCItemBlock/BlockStateProvider（ブロック/ブロックステートプロバイダ）のスロットにのみ接続可能",
    "use_case_ja": "「座標のブロック = 草ブロック」の比較やブロック設置の指定。"
   },
   "mcitem_all": {
@@ -17820,7 +17830,14 @@
    "side": null,
    "value_inputs": [],
    "statement_inputs": [],
-   "fields": [],
+   "fields": [
+    {
+     "name": "value",
+     "type": "field_mcitem_selector",
+     "datalist": "all",
+     "options": null
+    }
+   ],
    "dependencies": [],
    "required_apis": null,
    "visual_description_ja": "色: #A65B68（赤系・色相350°） / 値ブロック：横長・角丸。左端に六角形/パズル型の差し込みコネクタがあり、他ブロックの入力スロットにはめ込む。上下の接続はない。 / 出力型: MCItem（アイテム/ブロック）のスロットにのみ接続可能",

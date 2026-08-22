@@ -49,10 +49,12 @@ npm run check-graph             # フラットなグラフ形式の正規化（n
 npm run check-compat            # MCreator 2025.1互換性チェック（安全ガード・call_procedure引数mutator・捕獲/再召喚サンプル等）
 npm run check-mcreator-features # 変数（9型×6スコープ）・trigger自動補完・iteratorスコープ検出・round-trip検証
 npm run check-variables         # ↑と同じファイル（scripts/check-mcreator-features.mjs）を実行するエイリアス
+npm run check-selectors         # mcitem_allblocks/mcitem_allセレクタの検証・接続・round-trip検証
+npm run check-entity-types      # logic_entity_compare（エンティティ種類判定）の検証・接続・round-trip検証
 ```
 
 `.github/workflows/ci.yml` が `push`/`pull_request` のたびに `check-mcreator-features`（`check-variables` と同一）
-を含む上記6コマンド全てとPDFレイアウト検証を自動実行します
+を含む上記8コマンド全てとPDFレイアウト検証を自動実行します
 （`.github/workflows/deploy.yml` はビルド＋GitHub Pagesデプロイ専任で、テストは実行しません）。
 
 ## GitHub Pages への公開手順
@@ -335,6 +337,10 @@ block_id・field名（`VAR`/`VAL`/`entity`）・XML形式（`<field name="VAR">l
 
 - 対応するスコープの外（あるいは無関係な `*_foreach` の内側）で使われた場合 → **E017**
 - ネストしていても、正しい `*_foreach` の子孫であれば有効です（`controls_if` を挟んでも可）
+- `*_iterator` ブロック自身が宣言する `dependencies`（例: `direction_iterator` の
+  `directioniterator:direction`）は、対応する `*_foreach` の該当statement内で正しく使われている限り
+  **W001の「要求する依存関係」一覧には出ません**（`*_foreach` 側の `provides_name` が同じ名前でその依存を
+  ローカルに満たすため）。スコープ外で使われた場合（E017になる場合）は、この依存も引き続きW001の対象です
 
 ```jsonc
 // OK: world_entity_inrange_foreach の foreach 内
@@ -342,6 +348,166 @@ block_id・field名（`VAR`/`VAL`/`entity`）・XML形式（`<field name="VAR">l
   { "block_id": "entity_despawn", "value_inputs": { "entity": { "block_id": "entity_iterator" } } }
 ] } }
 ```
+
+## ブロック/アイテム選択UI（`mcitem_allblocks` / `mcitem_all`）
+
+MCreatorのプロシージャエディタ上で「特定のブロック（例: ICE, STAINED_GLASS#3）」「特定のアイテム/ブロック」を
+選ぶGUI（ブロック一覧ダイアログ）に対応する2つのブロックです。どちらも `source: "js-imperative"`
+（Java実行時に生成されるブロックで、静的な `core/procedures/*.json` には定義が無い）で、
+Blockly側のフィールドクラスは `FieldMCItemSelector`（`mcreator-core.zip` の
+`blockly/js/field_mcitem_selector.js`）です。
+
+- `mcitem_allblocks`: 出力型 `["MCItemBlock", "BlockStateProvider"]`（配列。以前の抽出では未捕捉で
+  `"any"` として記録されていましたが、`mcreator_blocks.js` の `setOutput(true, ['MCItemBlock',
+  'BlockStateProvider'])` から確認し修正済みです）。`block_add`/`block_replace` の `block` 入力
+  （`check: "MCItemBlock"`）に接続します。
+- `mcitem_all`: 出力型 `"MCItem"`（単一）。
+
+### JSONでの指定方法
+
+両ブロックとも `fields.value` に選択値を文字列で指定します（`mcreator_blocks.js`:
+`.appendField(new FieldMCItemSelector("allblocks"), "value")` で確認したフィールド名）。
+`FieldMCItemSelector` は `SERIALIZABLE = true` の素のテキストフィールドで、独自の
+`toXml`/`fromXml`・mutation・extra_state は一切持ちません（値はBlockly標準の
+`<field name="value">…</field>` としてそのまま保存されます）。
+
+```jsonc
+// バニラブロック（datalists/blocksitems.yaml のキー形式そのもの）
+{ "node_id": "b1", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.ICE" } }
+
+// blockstate/メタデータのバリエーション（#<index>）
+{ "node_id": "b2", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.STAINED_GLASS#3" } }
+
+// MOD要素（ワークスペース依存のカスタムブロック）
+{ "node_id": "b3", "block_id": "mcitem_allblocks", "fields": { "value": "CUSTOM:MyCustomBlock" } }
+```
+
+### 値の形式（MCreator 2025.1 実データで確認済み・推測なし）
+
+| 形式 | 意味 | 根拠 |
+|---|---|---|
+| `Blocks.<名前>` | バニラブロック | `datalists/blocksitems.yaml` のキー（例: `Blocks.ICE`, `Blocks.AIR`）と、生成器側の `mappings/blocksitems.yaml` のキーが完全一致することを確認。`NameMapper.getMapping(value, index)` はこの文字列そのものをキーに `Map.get(value)` を行う（`javap -c` でバイトコード確認済み） |
+| `Blocks.<名前>#<index>` | blockstate/メタデータのバリエーション | 同上（例: `Blocks.STAINED_GLASS#3` = light_blue_stained_glass） |
+| `CUSTOM:<MOD要素名>` | ワークスペース内のカスタムMOD要素 | `net.mcreator.generator.GeneratorWrapper.getElementPlainName`（`"CUSTOM:"` を除去）と `MappableElement.validateReference`（`workspace.containsModElement()` で存在確認）で確認 |
+| `CUSTOM:<MOD要素名>.<suffix>` | カスタム要素のblockstateバリエーション | `getElementPlainName` が `.` より前を要素名として切り出す実装（`StringUtils.substringBeforeLast(…, ".")`）から確認 |
+| `EXTERNAL:<値>` | エスケープハッチ（マッピングを介さず文字列をそのまま使う） | `NameMapper.getMapping` の `"EXTERNAL:"` プレフィックス除去分岐（全マッピングソース共通の汎用機構）で確認 |
+
+これら5形式のいずれにも一致しない値は **E019**、値が空（未選択）は **E018** です。旧実装のように
+不正/空値を黙って `AIR` にフォールバックすることはありません。
+
+**未対応**: `Blocks.<名前>` のバニラ名自体を `datalists/blocksitems.yaml`（約2800件超）の全件カタログと
+突き合わせる網羅的な存在チェックは行っていません（既存の `field_data_list_selector` 系フィールド
+（`spawnableEntity` 等）も同様に、形式チェックのみで値の網羅検証はしていない、という本アプリの
+既存方針に合わせています）。形式が正しければ通過し、存在しない名前を指定した場合の検出はMCreator側の
+ビルド時警告（`blockly.errors.mcitem_broken_reference`）に相当する仕組みが今のところ本アプリには
+ありません。
+
+### レンダリング
+
+`blocks_render.json` は元々このフィールドを正しく捕捉していた（`field_mcitem_selector` 型・
+`name: "value"`）ため、`src/blockly/fields.ts` の `SimpleTextField`（テキストをそのまま描画する
+標準の `Blockly.FieldTextInput` 派生）で選択値がブロック上にテキストとして表示されます。
+本家のようなアイテムアイコン画像までは再現していませんが、`"Blocks.ICE"` 等の文字列が
+そのままブロック上に見えるため、選んだブロックが何かは画像上で判別できます。
+
+### `blocks_full.json` を修正した理由
+
+`mcitem_allblocks`/`mcitem_all` はJava実行時に構築される `source: "js-imperative"` ブロックで、
+`tools/extract.py`（`blocks_full.json` の生成元）の正規表現ベースのSection 3パーサーには
+以下2つの穴があり、この2ブロックだけが影響を受けていました（他の514ブロックへの影響なし。
+`tools/blocks.json` の全件差分で確認済み）。
+
+1. `setOutput(true, ['MCItemBlock', 'BlockStateProvider'])` のような配列リテラルを認識せず、
+   `"any"` にフォールバックしていた。
+2. `new FieldMCItemSelector(...)` を使った `appendField` パターンを一切認識しておらず、
+   `fields` が空のまま出力されていた（`FieldDataListSelector` 用のパターンはあったが、
+   `FieldMCItemSelector` 用が無かった）。
+
+`tools/gen_render_defs.py`（`blocks_render.json` の生成元）は既にこの2パターンを正しく
+解析できていた（`blocks_render.json` はハンドで直したものではなく元から正しかった）ため、
+`tools/extract.py` 側を同じロジックに合わせて修正し、`tools/blocks.json` を再生成した上で
+`public/reference/blocks_full.json` の該当2エントリ（`output_type`/`output_type_ja`/`fields`）
+のみを差し替えました。`visual_description_ja`/`use_case_ja`/`category` 等の手動補記フィールドは
+そのまま維持しています。
+
+### ラウンドトリップ
+
+JSON → `normalizeInput.ts` → `validate.ts`（E018/E019含む） → `toXml.ts`
+（追加のオーバーライドやmutationは不要、通常のfield出力パスのみ） → Blockly（`SimpleTextField`）
+→ XML再出力、の全経路で値の欠落はありません（`npm run check-selectors` で検証）。
+
+## エンティティ種類判定（`logic_entity_compare`）
+
+「対象EntityがCreeperかどうか」「Zombieかどうか」のような、特定のバニラ/カスタムエンティティ種類の判定に
+対応しています。使うブロックは新規追加ではなく、**もともとblocks_full.jsonに完全な形で存在していた**
+`logic_entity_compare`（`value_inputs.compareTo: Entity` / `fields.entity: field_data_list_selector`,
+`datalist: "entity"` / 出力 `Boolean`）です。`entity_check_creature_type`
+（UNDEAD/ARTHROPOD/ILLAGER/WATERの広いカテゴリのみを判定するブロック）とは別物で、こちらを
+Creeper判定用に転用したり選択肢を追加したりはしていません。
+
+### なぜ今まで見つからなかったか
+
+`logic_entity_compare` 自体の構造データ（block_id・fields・value_inputs・output_type）は元々正しく
+捕捉されていましたが、以下2点が discoverability（GPTが検索・特定できるか）を著しく下げていました。
+今回、実データに基づき両方を修正しています。
+
+1. `use_case_ja`（用途説明）が「取得値を他ブロックの入力スロットへ差し込んで使う。」という汎用の
+   フォールバック文言のままで、「エンティティ種類判定に使う」という具体的な用途が一切書かれていなかった
+   → 具体的な用途・使用例・関連ブロックとの違いを明記するよう修正
+2. `fields.entity` に指定できる値の一覧（`datalist: "entity"` の実際の中身）がこのリポジトリの
+   どこにも機械可読な形で存在しなかった → `public/reference/entity_types.json`
+   （MCreator 2025.1の `core/datalists/entities.yaml` から抽出、166件）を新規追加
+
+### JSONでの指定方法
+
+```jsonc
+{
+  "node_id": "is_creeper",
+  "block_id": "logic_entity_compare",
+  "fields": { "entity": "EntityCreeper" },
+  "value_inputs": { "compareTo": { "node_id": "e1", "block_id": "entity_from_deps" } }
+}
+```
+
+### 値の形式（MCreator 2025.1 実データで確認済み・推測なし）
+
+`fields.entity` の値は `public/reference/entity_types.json` の `entities[].key` をそのまま
+文字列で指定します。この値は `net.mcreator.generator.mapping.NameMapper` の
+`generator.map(field$entity, "entities", N)`（`javap -c` でバイトコード確認済み。実際に
+`neoforge-1.21.1/procedures/logic_entity_compare.java.ftl` を読むと生成コードは
+`(${input$compareTo} instanceof ${generator.map(field$entity, "entities", 0)})` という
+**素のJava `instanceof` 判定**そのものです）で解決されます。
+
+| 形式 | 意味 | 例 |
+|---|---|---|
+| `Entity<名前>` | バニラエンティティ（`datalists/entities.yaml` と生成器側 `mappings/entities.yaml` のキーが一致することを確認済み） | `EntityCreeper`, `EntityZombie`, `EntitySkeleton`, `EntityCow` |
+| `Entity<抽象スーパータイプ名>` | 「(サブ)タイプ」判定専用の抽象カテゴリ（spawn不可、`entity_types.json` の `spawnable: false`） | `EntityAnimal`, `EntityAgeable`, `EntityMonster` |
+| `CUSTOM:<MOD要素名>` | ワークスペース内のカスタムMOD定義エンティティ（`mcitem_allblocks` と同じ `GeneratorWrapper.getElementPlainName`/`MappableElement.validateReference` の仕組みで確認） | `CUSTOM:MyBoss` |
+| `EXTERNAL:<値>` | エスケープハッチ（マッピングを介さず文字列をそのまま使う） | `EXTERNAL:some.Literal` |
+
+`entity`（`logic_entity_compare` が使うUI選択肢名）と `spawn_entity`/`entity_create`/
+`spawn_entity_with_rotation[_velocity]`/`world_entity_inrange[_exists]` が使う `spawnableEntity`
+は、**同じ `entities.yaml` 由来・同じ `generator.map(..., "entities", N)` マッピングテーブルを使う
+ことを実際の7つの `.java.ftl` テンプレートすべてで確認済み**のため、値の形式は共通です
+（`spawnableEntity` はUI上spawn可能な項目のみに絞られたサブセットという違いだけです）。
+
+空値は **E020**、上記いずれの形式にも一致しない値は **E021**、形式は正しいが
+`entity_types.json` に見つからないバニラ名（例: タイプミスや将来追加された未収録エンティティ）は
+**W013**（警告のみ、描画は継続）です。カスタムMOD要素名はワークスペース依存のため静的カタログとは
+突き合わせません（未知の名前でもブロック不可にはしません）。
+
+### カスタムエンティティの扱い
+
+ワークスペースのカスタムMOD定義エンティティ（例: 自作ボス「MyBoss」）は `entity_types.json` の
+静的166件カタログには存在し得ません。`mcitem_allblocks`（Phase I）と全く同じ設計判断により、
+`CUSTOM:` プレフィックスを持つ値は静的カタログと突き合わせず、ワークスペース依存の識別子として
+そのまま受け入れます（`MappableElement.validateReference` がバリデーションを workspace 側に
+委譲しているのと同じ実データ上の根拠に基づきます）。
+
+### サンプル
+
+`public/samples/sample_entity_is_creeper.json`（`npm run check-samples`/`check-entity-types` で検証）:
+対象EntityがCreeperかどうかを判定し、真ならチャットに表示する最小例です。
 
 ## エラーコード表
 
@@ -364,6 +530,10 @@ block_id・field名（`VAR`/`VAL`/`entity`）・XML形式（`<field name="VAR">l
 | E015 | error | 同一名前空間内（local同士、またはGLOBAL_\*/PLAYER_\*同士）での変数名重複 |
 | E016 | error | `variables_get_<型>`/`variables_set_<型>` のブロックの型と、変数の宣言型が不一致 |
 | E017 | error | `entity_iterator`/`direction_iterator`/`itemstack_iterator` が対応する`*_foreach`ブロックのスコープ外で使われている |
+| E018 | error | `field_mcitem_selector`（`mcitem_allblocks`/`mcitem_all` の `value` フィールド）が空。ブロック/アイテムが未選択 |
+| E019 | error | `field_mcitem_selector` の値が `Blocks.<名前>`/`Blocks.<名前>#<index>`/`CUSTOM:<MOD要素名>`/`CUSTOM:<MOD要素名>.<suffix>`/`EXTERNAL:<値>` のいずれの形式にも一致しない |
+| E020 | error | エンティティ種類選択（`field_data_list_selector`、datalist `entity`/`spawnableEntity`）の値が空 |
+| E021 | error | エンティティ種類選択の値が `Entity<名前>`/`CUSTOM:<MOD要素名>`/`CUSTOM:<MOD要素名>.<suffix>`/`EXTERNAL:<値>` のいずれの形式にも一致しない |
 | W001 | warn | 使用ブロックの dependencies 集約表示（trigger オブジェクト形式・トリガーカタログの提供分を差し引いた差分のみ） |
 | W002 | warn | field_dropdown の値が機械値・表示ラベルのいずれにも一致しない |
 | W003 | warn | mcreator_version 不一致 |
@@ -376,11 +546,12 @@ block_id・field名（`VAR`/`VAL`/`entity`）・XML形式（`<field name="VAR">l
 | W010 | warn | PLAYER系スコープの変数参照に `value_inputs.entity`（対象プレイヤー）が指定されていない |
 | W011 | warn | ステートメント入力を持つブロックの、全てのスロットが完全に空（未完成の可能性） |
 | W012 | warn | `variables` 宣言の `initial_value` が宣言 `type` と噛み合わない単純型不一致（描画には無関係） |
+| W013 | warn | エンティティ種類選択の値が `Entity<名前>` 形式としては正しいが、`entity_types.json` の既知バニラエンティティ一覧に見つからない |
 | I001 | info | 本当に未知のキー（文書全体で1件に集約） |
 | I002 | info | blocks_full.jsonで required_apis を持つブロックが使われている（ノード単位） |
 | I003 | info | プロシージャ全体で必要な追加APIの集約一覧（`required_apis` を持つ全ノードの和集合） |
 
-E001〜E017 が1件でもあれば描画を中止し、エラー一覧のみを表示します。warn/infoは描画を継続します。
+E001〜E021 が1件でもあれば描画を中止し、エラー一覧のみを表示します。warn/infoは描画を継続します。
 
 なお `E999` はSPEC.mdが定義する表には無い、本アプリ独自の安全網用コードです。検証自体は通過したにも関わらず
 Blockly側が接続を拒否した（読み込み後のブロック数が期待値と不一致）場合や、描画・エクスポート処理自体が
@@ -456,6 +627,14 @@ Blockly側が接続を拒否した（読み込み後のブロック数が期待�
   に対応しています。詳細は上記「変数（カスタム変数）」「トリガーカタログ」「Iterator（イテレータ）スコープ検証」
   の各節を参照してください。block_id・field名・XML形式はいずれもMCreator 2025.1本体の実データ・実コード
   （`mcreator-core.zip`・`mcreator.jar`）から確認したものです
+- **ブロック/アイテム選択UI（`mcitem_allblocks`/`mcitem_all`）**: 選択済みブロック/アイテムを
+  `fields.value` にMCreator実データ由来の形式（`Blocks.<名前>`/`CUSTOM:<MOD要素名>`/`EXTERNAL:<値>` 等）
+  で指定でき、描画・XMLラウンドトリップとも値が失われません。詳細は上記「ブロック/アイテム選択UI」の節を
+  参照してください
+- **エンティティ種類判定（`logic_entity_compare`）**: 対象EntityがCreeper/Zombie/Skeleton等の特定の
+  バニラ/カスタムエンティティ種類かどうかを `fields.entity` にMCreator実データ由来の形式
+  （`Entity<名前>`/`CUSTOM:<MOD要素名>`/`EXTERNAL:<値>`）で判定できます。詳細は上記
+  「エンティティ種類判定」の節を参照してください
 
 ### 未対応：根拠データ不足・対象外
 
@@ -474,6 +653,10 @@ Blockly側が接続を拒否した（読み込み後のブロック数が期待�
   `blocks_render.json` にこの情報は含まれていません。value_inputs（condition/THEN/ELSE）自体は正しく
   捕捉されているため**接続・データの欠落はありません**。純粋に見た目（自動インライン配置）が本家と多少
   異なる可能性がある、という軽微な既知差分です
+- **`mcitem_allblocks`/`mcitem_all` のバニラ名網羅検証**: `Blocks.<名前>` 形式であることの構文チェックは
+  行いますが、`datalists/blocksitems.yaml`（約2800件超）全件のカタログと突き合わせた「実在する名前か」の
+  検証はしていません（既存の `field_data_list_selector` 系フィールドと同じ、形式チェックのみの方針）。
+  同様に画像アイコンでの視覚表現も行っておらず、選択値はテキストとしてのみ表示されます
 
 ## ディレクトリ構成（抜粋）
 
@@ -486,17 +669,23 @@ src/
   blockly/        # registerBlocks（call_procedure引数mutator・カスタム変数18ブロックの動的登録を含む） /
                   # fields / toXml（<variables>宣言の生成を含む） / workspace / export / clipboardExport
   components/     # Header / ValidationList / ZoomControls / CopyButton / StatusBar / Toast
-  data/           # ReferenceDataContext（参照JSON5種の起動時1回フェッチ）
+  data/           # ReferenceDataContext（参照JSON6種の起動時1回フェッチ）
   App.tsx / main.tsx / index.css
 public/
   reference/      # blocks_full.json / blocks_render.json / FULL-REFERENCE.md（同梱・変更禁止）に加え、
-                  # variable_types.json / triggers.json / iterator_providers.json（本セッションで追加。
-                  # tools/extract_mcreator_metadata.py の出力、同じくMCreator実データ由来）
+                  # variable_types.json / triggers.json / iterator_providers.json / entity_types.json
+                  # （本セッション群で追加。tools/extract_mcreator_metadata.py の出力、
+                  # 同じくMCreator実データ由来）
   res/            # field_image 用画像（同梱・変更禁止）
   samples/        # サンプル（UIからは参照しなくなったが、check-samples.mjs等による機械的な検証・CI用に残置）
 tools/
   extract_mcreator_metadata.py  # MCreator.appのplugins/{mcreator-core,mcreator-localization}.zipから
-                                 # variable_types.json/triggers.json/iterator_providers.jsonを再生成するスクリプト
+                                 # variable_types.json/triggers.json/iterator_providers.json/
+                                 # entity_types.jsonを再生成するスクリプト（PyYAML要）
+  extract.py / gen_render_defs.py  # blocks_full.json/blocks_render.jsonの生成元
+                                    # （core/procedures・core/blockly/js・core/loc/lang を入力とする。
+                                    # これらcoreディレクトリ自体はMCreator.appから都度抽出するため
+                                    # リポジトリには含まない）
 scripts/
   check-samples.mjs
   check-broken.mjs
@@ -504,14 +693,20 @@ scripts/
   check-compat.mjs             # MCreator 2025.1互換性テスト（安全ガード・call_procedure引数mutator等）
   check-mcreator-features.mjs  # カスタム変数（9型×6スコープ）・trigger自動補完・iteratorスコープ検証・
                                 # サンプルのround-trip検証（npm run check-variables からも同じファイルを実行）
+  check-selectors.mjs          # mcitem_allblocks/mcitem_allセレクタのJSON検証・接続・ラウンドトリップ・
+                                # Lesson 9相当サンプル（sample_lesson9_circle_blocks.json）のround-trip検証
+  check-entity-types.mjs       # logic_entity_compare（エンティティ種類判定）のJSON検証・接続・
+                                # ラウンドトリップ・sample_entity_is_creeper.json の検証
 .github/workflows/
-  ci.yml            # push/PR毎にtypecheck + check-*系5本 + check-pdf-layoutを実行
+  ci.yml            # push/PR毎にtypecheck + check-*系8本 + check-pdf-layoutを実行
   deploy.yml        # mainへのpush時にビルド＋GitHub Pagesデプロイ（テストは実行しない）
 ```
 
 `public/samples/` はUI上の「サンプル」選択機能としては提供していません（UIの簡素化のため削除）。
-`npm run check-samples` / `npm run check-graph` / `npm run check-mcreator-features` から引き続き参照される、
-検証ロジックの回帰テスト用データとして残しています（カスタム変数サンプル5種を含む）。
+`npm run check-samples` / `npm run check-graph` / `npm run check-mcreator-features` /
+`npm run check-selectors` / `npm run check-entity-types`
+から引き続き参照される、検証ロジックの回帰テスト用データとして残しています
+（カスタム変数サンプル5種・Lesson 9相当サンプル1種・エンティティ種類判定サンプル1種を含む）。
 
 ### 正規化と検証の分離（`src/lib/`）
 

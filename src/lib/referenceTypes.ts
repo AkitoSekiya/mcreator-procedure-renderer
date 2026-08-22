@@ -166,3 +166,29 @@ export interface IteratorProvidersData {
   note: string;
   providers: IteratorProviderDef[];
 }
+
+/** Mirrors `public/reference/entity_types.json` — MCreator 2025.1's vanilla
+ * entity catalog (`core/datalists/entities.yaml`), the value catalog behind
+ * `field_data_list_selector` fields named "entity" (datalist "entity" or
+ * "spawnableEntity" — confirmed, via every one of their 7 real
+ * neoforge-1.21.1/procedures/*.java.ftl templates, to resolve through the
+ * same `generator.map(value, "entities", N)` NameMapper table). `key` is the
+ * literal string persisted in the field's XML value (e.g. "EntityCreeper");
+ * `spawnable: false` entries are abstract Java supertypes (EntityAnimal,
+ * EntityAgeable, ...) valid only for logic_entity_compare's "(sub)type"
+ * check, not for spawning. */
+export interface EntityTypeDef {
+  key: string;
+  readable_name_en: string | null;
+  spawnable: boolean;
+}
+
+export interface EntityTypesData {
+  mcreator_version: string;
+  note: string;
+  field_name: string; // "entity"
+  datalists: string[]; // ["entity", "spawnableEntity"]
+  custom_prefix: string; // "CUSTOM:"
+  external_prefix: string; // "EXTERNAL:"
+  entities: EntityTypeDef[];
+}

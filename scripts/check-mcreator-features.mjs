@@ -31,7 +31,8 @@ const dropdownOptions = buildDropdownOptionsMap(render);
 const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
 const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
 const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
-const extras = { variableTypes, triggers, iteratorProviders };
+const entityTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/entity_types.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders, entityTypes };
 
 let failures = 0;
 function fail(message) {
@@ -566,6 +567,80 @@ for (const scope of ALL_SCOPES) {
   ok('entity_iterator nested 2 levels inside the correct provider: no E017', !result.messages.some((m) => m.code === 'E017'), JSON.stringify(result.messages));
 }
 
+// --- 3f. direction_iterator correctly nested inside direction_foreach's
+// "foreach" must NOT produce a spurious W001 "directioniterator" dependency
+// warning. Root cause: direction_iterator declares its own MCreator-real
+// dependency as "directioniterator:direction" (see blocks_full.json), and
+// W001's dependency aggregation used to add every used block's declared
+// dependency to the "required" set unconditionally, with no awareness that
+// direction_foreach's "foreach" statement locally *provides* that exact
+// name (iterator_providers.json's provides_name "directioniterator" for
+// block_id "direction_foreach"/statement_name "foreach" — the same name
+// direction_iterator itself declares, both sourced from MCreator's own
+// mcreator.statements[].provides). A dependency satisfied by an active
+// *_foreach ancestor is not something the trigger needs to supply, so it
+// must not appear in W001's message. This also exercises the JSON's real
+// "_placeholder" value_input (per direction_foreach's actual MCreator JSON:
+// mcreator.toolbox_init always fills it with a fixed, disabled
+// direction_iterator block purely as UI decoration — it is not part of the
+// "foreach" statement's provides scope, so this test intentionally leaves
+// it unset, same as the existing 3d test above) with a direction_iterator
+// used inside the loop body (block_set_direction). ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'direction_foreach_iterator_deps_test',
+    blocks: [
+      {
+        node_id: 'loop',
+        block_id: 'direction_foreach',
+        statement_inputs: {
+          foreach: [
+            {
+              node_id: 'setdir',
+              block_id: 'block_set_direction',
+              value_inputs: {
+                x: numNode('x'),
+                y: numNode('y'),
+                z: numNode('z'),
+                direction: { node_id: 'cur', block_id: 'direction_iterator' },
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+  const result = validate(doc);
+  ok('direction_iterator inside direction_foreach: no E017', !result.messages.some((m) => m.code === 'E017'), JSON.stringify(result.messages));
+  ok(
+    'direction_iterator inside direction_foreach: no spurious W001 "directioniterator" dependency warning',
+    !result.messages.some((m) => m.code === 'W001' && m.message.includes('directioniterator')),
+    JSON.stringify(result.messages),
+  );
+}
+
+// --- 3g. direction_iterator used with NO enclosing *_foreach at all still
+// gets both E017 (wrong scope) and, independently, still counts as a real
+// missing dependency in W001 if somehow reached despite the error (guards
+// against the 3f fix over-broadly suppressing W001 for genuinely-unscoped
+// usage — but a document with E017 never reaches XML rendering anyway, this
+// only confirms depsUsed itself isn't being suppressed unconditionally). ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'direction_iterator_outside_scope_test',
+    blocks: [{ node_id: 'setdir', block_id: 'block_set_direction', value_inputs: { x: numNode('x'), y: numNode('y'), z: numNode('z'), direction: { node_id: 'it', block_id: 'direction_iterator' } } }],
+  };
+  const result = validate(doc);
+  ok('direction_iterator with no enclosing *_foreach: E017', result.messages.some((m) => m.code === 'E017'), JSON.stringify(result.messages));
+  ok(
+    'direction_iterator with no enclosing *_foreach: W001 still lists "directioniterator" as required',
+    result.messages.some((m) => m.code === 'W001' && m.message.includes('directioniterator')),
+    JSON.stringify(result.messages),
+  );
+}
+
 // ============================================================================
 // Part 4: W011 (empty statement body) direct tests
 // ============================================================================
@@ -733,6 +808,33 @@ function loadIntoWorkspace(normalized) {
   return { workspace, xml, expected, actual };
 }
 
+// --- 4z. direction_foreach's rendered block must not show literal "%1"/
+// "%2"/full-width "％1"/"％2" placeholder text — regression guard for the
+// blocks_render.json message0 fix (tools/gen_render_defs.py's load_props()
+// now normalizes MCreator JA locale strings' full-width "％<digit>" to
+// ASCII "%<digit>" before Blockly's own message0 substitution runs; without
+// it, direction_foreach's real JA string "％1として...％2を実行" left the
+// "％1"/"％2" untouched as literal text and tacked a redundant "%1 %2" onto
+// the end instead of substituting in place). Checked directly against the
+// real Blockly block's rendered field/input text, not just the raw JSON. ---
+{
+  const doc = {
+    format_version: 1,
+    procedure_name: 'direction_foreach_label_render_test',
+    blocks: [{ node_id: 'loop', block_id: 'direction_foreach', statement_inputs: { foreach: [] } }],
+  };
+  const result = validate(doc);
+  if (result.ok && result.normalized) {
+    const { workspace } = loadIntoWorkspace(result.normalized);
+    const block = workspace.getAllBlocks(false).find((b) => b.type === 'direction_foreach');
+    const rendered = block ? block.toString() : '';
+    blocklyOk('direction_foreach rendered text has no leftover "%1"/"%2" placeholder', !/%1|%2/.test(rendered), rendered);
+    blocklyOk('direction_foreach rendered text has no leftover full-width "％1"/"％2"', !/％1|％2/.test(rendered), rendered);
+  } else {
+    blocklyOk('direction_foreach label render test: validation must succeed first', false, JSON.stringify(result.messages));
+  }
+}
+
 // --- 5a. Real Blockly round-trip: player-scoped variable get gets its
 // entity input created on load, and the field/value are all present. ---
 {
@@ -868,9 +970,13 @@ function loadIntoWorkspace(normalized) {
       {
         node_id: 'spawn_custom',
         block_id: 'spawn_entity',
-        // Deliberately a *custom mod* registry name (not vanilla Minecraft)
-        // to confirm arbitrary mod element ids pass through untouched.
-        fields: { entity: 'my_awesome_mod:custom_dragon' },
+        // A *custom mod* entity reference (not vanilla Minecraft), using the
+        // real "CUSTOM:<ModElementName>" format (see src/lib/validate.ts's
+        // ENTITY_TYPE_VALUE_PATTERN doc comment — confirmed via
+        // GeneratorWrapper.getElementPlainName/MappableElement.
+        // validateReference, the same mechanism mcitem_allblocks uses) to
+        // confirm custom mod entity ids pass through untouched.
+        fields: { entity: 'CUSTOM:CustomDragon' },
         value_inputs: { x: numNode('x'), y: numNode('y'), z: numNode('z') },
         next: 'call_helper',
       },
@@ -897,7 +1003,7 @@ function loadIntoWorkspace(normalized) {
   ok('round_trip_mixed_test: 0 errors', errors.length === 0, JSON.stringify(result.messages));
   if (result.normalized) {
     const xml = procedureToXmlString(result.normalized);
-    ok('round_trip_mixed_test: custom mod element id preserved verbatim', xml.includes('my_awesome_mod:custom_dragon'), xml);
+    ok('round_trip_mixed_test: custom mod element id preserved verbatim', xml.includes('CUSTOM:CustomDragon'), xml);
     ok('round_trip_mixed_test: controls_if mutation has else="1"', /<mutation elseif="0" else="1">/.test(xml), xml);
     ok('round_trip_mixed_test: call_procedure argument connected (arg0)', xml.includes('<value name="arg0">'), xml);
     ok('round_trip_mixed_test: variable field present', xml.includes('<field name="VAR">global:hits</field>'), xml);

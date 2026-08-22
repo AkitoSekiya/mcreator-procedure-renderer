@@ -16,7 +16,18 @@ def load_props(path):
             if not line or line.startswith('#') or '=' not in line:
                 continue
             k, v = line.split('=', 1)
-            d[k.strip()] = v.replace('\\:', ':').replace('\\=', '=').replace('&amp;', '&')
+            v = v.replace('\\:', ':').replace('\\=', '=').replace('&amp;', '&')
+            # A handful of MCreator 2025.1 JA strings (e.g.
+            # blockly.block.direction_foreach) use the full-width Japanese
+            # percent sign "％" instead of ASCII "%" before a placeholder
+            # digit — Blockly's own message0 substitution syntax only
+            # recognizes ASCII "%N", so left as-is these render as literal
+            # "％1"/"％2" text on the block instead of being replaced by the
+            # actual input/statement. Normalize to ASCII here so every
+            # consumer (this script and gen_render_defs.py) sees a working
+            # placeholder regardless of which locale string it came from.
+            v = re.sub(r'％(\d+)', r'%\1', v)
+            d[k.strip()] = v
     return d
 
 EN = load_props(os.path.join(LANG, 'texts.properties'))
@@ -74,9 +85,16 @@ def resolve_colour(c):
 TYPE_JA = {'Number': '数値', 'Boolean': '論理値(true/false)', 'String': 'テキスト',
            'Entity': 'エンティティ', 'MCItem': 'アイテム/ブロック', 'MCItemBlock': 'ブロック',
            'ItemStack': 'アイテムスタック', 'BlockState': 'ブロックステート',
+           'BlockStateProvider': 'ブロックステートプロバイダ',
            'Direction': '方向', 'DamageSource': 'ダメージソース', 'Dimension': 'ディメンション',
            'ActionResultType': 'アクション結果', 'AttributeModifierOperation': '属性修飾子の演算',
            'Pair': 'ペア'}
+
+def type_ja(out):
+    if not out:
+        return None
+    parts = out if isinstance(out, list) else [out]
+    return '/'.join(TYPE_JA.get(p, p) for p in parts)
 
 def t_block(name):
     en = EN.get('blockly.block.' + name)
@@ -148,10 +166,7 @@ def side_from_args(all_args):
 
 def shape_of(j):
     if j.get('output') is not None or 'output' in j:
-        out = j.get('output')
-        if isinstance(out, list):
-            out = '/'.join(out)
-        return 'value', out
+        return 'value', j.get('output')
     if j.get('previousStatement', 'x') is None or j.get('nextStatement', 'x') is None or \
        'previousStatement' in j or 'nextStatement' in j:
         return 'statement', None
@@ -213,7 +228,7 @@ def make_block(name, j, source):
         'colour_name_ja': hue_name(colour) if not (isinstance(colour, str) and str(colour).startswith('#')) else None,
         'shape': shape,
         'output_type': out,
-        'output_type_ja': TYPE_JA.get(out, out) if out else None,
+        'output_type_ja': type_ja(out),
         'has_prev_next': shape == 'statement',
         'inputs_inline': j.get('inputsInline', False),
         'label_en': en_full,
@@ -267,11 +282,15 @@ for bm in re.finditer(r"Blockly\.Blocks\['([\w]+)'\]\s*=\s*\{\s*init:\s*function
     if cm:
         c = cm.group(1).strip().strip("'\"")
         j['colour'] = c
-    om = re.search(r"setOutput\(true,\s*['\"]([\w]+)['\"]\)", body)
+    om = re.search(r"setOutput\(true(?:,\s*(\[[^\]]*\]|'[\w]+'|\"[\w]+\"))?\)", body)
     if om:
-        j['output'] = om.group(1)
-    elif re.search(r"setOutput\(true", body):
-        j['output'] = 'any'
+        chk = om.group(1)
+        if chk is None:
+            j['output'] = 'any'
+        elif chk.startswith('['):
+            j['output'] = ast.literal_eval(re.sub(r'\bnull\b', 'None', chk))
+        else:
+            j['output'] = chk.strip("'\"")
     if re.search(r"setPreviousStatement\(true", body):
         j['previousStatement'] = None
     if re.search(r"setNextStatement\(true", body):
@@ -286,6 +305,8 @@ for bm in re.finditer(r"Blockly\.Blocks\['([\w]+)'\]\s*=\s*\{\s*init:\s*function
         args.append({'type': 'input_statement', 'name': sm.group(1)})
     for dm in re.finditer(r"new FieldDataListSelector\('([\w]+)'\)", body):
         args.append({'type': 'field_data_list_selector', 'datalist': dm.group(1), 'name': ''})
+    for mm in re.finditer(r'appendField\(new FieldMCItemSelector\("([^"]+)"\),\s*"([^"]+)"\)', body):
+        args.append({'type': 'field_mcitem_selector', 'datalist': mm.group(1), 'name': mm.group(2)})
     if args:
         j['args0'] = args
         j['message0'] = ' '.join('%%%d' % (i+1) for i in range(len(args)))

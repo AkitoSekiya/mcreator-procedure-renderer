@@ -1,13 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Extracts public/reference/variable_types.json, triggers.json and
-iterator_providers.json from MCreator 2025.1's own plugin data.
+"""Extracts public/reference/variable_types.json, triggers.json,
+iterator_providers.json and entity_types.json from MCreator 2025.1's own
+plugin data.
 
-These three files supplement blocks_full.json/blocks_render.json (which only
+These four files supplement blocks_full.json/blocks_render.json (which only
 cover the 516 *static* procedure blocks) with data for features that MCreator
 generates dynamically and therefore never appear in that static catalog:
 custom variable get/set blocks, the global trigger catalog (with the
-dependencies each trigger provides), and which statement inputs scope which
-"*_iterator" value blocks.
+dependencies each trigger provides), which statement inputs scope which
+"*_iterator" value blocks, and the vanilla-entity catalog backing the
+`field_data_list_selector` fields named "entity" (datalist "entity" or
+"spawnableEntity" — both confirmed, via every one of their 7 real
+neoforge-1.21.1/procedures/*.java.ftl templates, to resolve through the exact
+same `generator.map(value, "entities", N)` NameMapper table, so they share
+one value format).
+
+Requires PyYAML (`pip install pyyaml`) only for the entity_types.json step
+(datalists/entities.yaml parsing) — the other three outputs are pure-stdlib
+as before.
 
 Source of truth (read-only, never modified by this script):
   <MCreator.app>/Contents/plugins/mcreator-core.zip
@@ -52,6 +62,8 @@ import os
 import sys
 import zipfile
 import tempfile
+
+import yaml
 
 
 def load_props(path):
@@ -165,7 +177,50 @@ def main():
                 'providers': providers,
             }, f, ensure_ascii=False, indent=2)
 
-    print('Wrote variable_types.json, triggers.json, iterator_providers.json to', out_dir)
+        # ---------- entity_types.json ----------
+        # datalists/entities.yaml: a flat list of one-entry dicts, each
+        # {"<key>": null, "readable_name": "...", "type": "spawnable"?}.
+        # "<key>" (e.g. "EntityCreeper") is the exact string persisted in a
+        # field_data_list_selector field's XML value (confirmed via
+        # net.mcreator.generator.mapping.NameMapper's javap-decompiled
+        # getMapping()/processMapping(): it does a direct Map.get(value)
+        # lookup keyed by this literal string against the generator's own
+        # mappings/entities.yaml, whose keys are identical to this datalist's
+        # — same cross-check methodology used for mcitem_allblocks/
+        # blocksitems.yaml). Entries without "type: spawnable" are abstract
+        # Java supertypes (EntityAnimal, EntityAgeable, ...) valid only for
+        # logic_entity_compare's "(sub)type" check, not for spawning.
+        with open(os.path.join(core, 'datalists', 'entities.yaml'), encoding='utf-8') as f:
+            raw_entries = yaml.safe_load(f)
+        entities = []
+        for entry in raw_entries:
+            key = next(k for k in entry if k != 'readable_name' and k != 'type')
+            entities.append({
+                'key': key,
+                'readable_name_en': entry.get('readable_name'),
+                'spawnable': entry.get('type') == 'spawnable',
+            })
+        entities.sort(key=lambda e: e['key'])
+        with open(os.path.join(out_dir, 'entity_types.json'), 'w', encoding='utf-8') as f:
+            json.dump({
+                'mcreator_version': '2025.1',
+                'note': ('MCreator 2025.1のdatalists/entities.yaml（core/datalists/entities.yaml）から抽出。'
+                         'field_data_list_selector（datalist "entity" または "spawnableEntity"、'
+                         'field名は常に "entity"）の値は、この一覧の "key" をそのまま文字列で指定する'
+                         '（例: Creeperなら "EntityCreeper"）。spawnable=falseの項目'
+                         '（EntityAnimal等の抽象スーパータイプ）は logic_entity_compare の'
+                         '"(サブ)タイプ判定" にのみ使え、spawn_entity等では使えない。'
+                         'カスタム（MOD定義）エンティティは "CUSTOM:<MOD要素名>" 形式で指定する'
+                         '（net.mcreator.generator.GeneratorWrapper.getElementPlainName + '
+                         'MappableElement.validateReference で確認、mcitem_allblocksと同じ仕組み）。'),
+                'field_name': 'entity',
+                'datalists': ['entity', 'spawnableEntity'],
+                'custom_prefix': 'CUSTOM:',
+                'external_prefix': 'EXTERNAL:',
+                'entities': entities,
+            }, f, ensure_ascii=False, indent=2)
+
+    print('Wrote variable_types.json, triggers.json, iterator_providers.json, entity_types.json to', out_dir)
 
 
 if __name__ == '__main__':

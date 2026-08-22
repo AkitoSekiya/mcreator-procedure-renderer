@@ -20,7 +20,8 @@ const dropdownOptions = buildDropdownOptionsMap(render);
 const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
 const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
 const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
-const extras = { variableTypes, triggers, iteratorProviders };
+const entityTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/entity_types.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders, entityTypes };
 
 let failures = 0;
 function fail(message) {
@@ -328,7 +329,11 @@ function spawnNode(id, extra) {
   return {
     node_id: id,
     block_id: 'spawn_entity',
-    fields: { entity: id },
+    // "CUSTOM:<id>" keeps the node's own id as a findable substring (several
+    // tests below locate specific spawn_entity nodes in the output XML by
+    // this text) while also being a format-valid entity value per
+    // src/lib/validate.ts's ENTITY_TYPE_VALUE_PATTERN.
+    fields: { entity: `CUSTOM:${id}` },
     value_inputs: { x: numNode(`${id}x`), y: numNode(`${id}y`), z: numNode(`${id}z`) },
     ...extra,
   };
@@ -387,9 +392,9 @@ function spawnNode(id, extra) {
     // Each spawn_N carries its own node_id as the `entity` field text (no
     // surrounding quotes — it's element text content, not an XML attribute),
     // so plain substring search is enough to check ordering.
-    const i1 = xml.indexOf('>spawn_1<');
-    const i2 = xml.indexOf('>spawn_2<');
-    const i3 = xml.indexOf('>spawn_3<');
+    const i1 = xml.indexOf('>CUSTOM:spawn_1<');
+    const i2 = xml.indexOf('>CUSTOM:spawn_2<');
+    const i3 = xml.indexOf('>CUSTOM:spawn_3<');
     ok('nested-next-B: spawn_1/2/3 appear in document order in the XML', i1 >= 0 && i1 < i2 && i2 < i3, xml);
   } else {
     fail('nested-next-B: expected a normalized result');
@@ -439,9 +444,9 @@ function spawnNode(id, extra) {
     // the DO0/next tag counts below this pins down the full nested shape
     // (outer_if.DO0 -> inner_if.DO0 -> [spawn_1 -> next spawn_2],
     // inner_if.next -> another_if.DO0 -> spawn_3).
-    const iSpawn1 = xml.indexOf('>spawn_1<');
-    const iSpawn2 = xml.indexOf('>spawn_2<');
-    const iSpawn3 = xml.indexOf('>spawn_3<');
+    const iSpawn1 = xml.indexOf('>CUSTOM:spawn_1<');
+    const iSpawn2 = xml.indexOf('>CUSTOM:spawn_2<');
+    const iSpawn3 = xml.indexOf('>CUSTOM:spawn_3<');
     ok('nested-next-C: spawn_1/2/3 appear in document order in the XML', iSpawn1 >= 0 && iSpawn1 < iSpawn2 && iSpawn2 < iSpawn3, xml);
     const doCount = (xml.match(/<statement name="DO0">/g) ?? []).length;
     const nextCount = (xml.match(/<next>/g) ?? []).length;
@@ -595,7 +600,7 @@ function spawnNode(id, extra) {
       {
         node_id: 'n1',
         block_id: 'spawn_entity',
-        fields: { entity: 'minecraft:zombie' },
+        fields: { entity: 'EntityZombie' },
         value_inputs: {
           x: { node_id: 'x', block_id: 'math_number', fields: { NUM: '1' } },
           y: { node_id: 'y', block_id: 'math_number', fields: { NUM: '1' } },
@@ -608,7 +613,7 @@ function spawnNode(id, extra) {
   ok('call_procedure-3: ordinary block (spawn_entity.entity) still 0 errors', result.messages.filter((m) => m.severity === 'error').length === 0, JSON.stringify(result.messages));
   if (result.normalized) {
     const xml = procedureToXmlString(result.normalized);
-    ok('call_procedure-3: ordinary field name is untouched by the call_procedure override', xml.includes('<field name="entity">minecraft:zombie</field>'), xml);
+    ok('call_procedure-3: ordinary field name is untouched by the call_procedure override', xml.includes('<field name="entity">EntityZombie</field>'), xml);
   } else {
     fail('call_procedure-3: expected a normalized result');
   }

@@ -16,7 +16,8 @@ const dropdownOptions = buildDropdownOptionsMap(render);
 const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
 const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
 const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
-const extras = { variableTypes, triggers, iteratorProviders };
+const entityTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/entity_types.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders, entityTypes };
 
 const samplesDir = path.join(root, 'public/samples');
 const files = readdirSync(samplesDir)

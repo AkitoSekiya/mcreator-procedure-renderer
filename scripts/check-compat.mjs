@@ -42,7 +42,8 @@ const dropdownOptions = buildDropdownOptionsMap(render);
 const variableTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/variable_types.json'), 'utf-8'));
 const triggers = JSON.parse(readFileSync(path.join(root, 'public/reference/triggers.json'), 'utf-8'));
 const iteratorProviders = JSON.parse(readFileSync(path.join(root, 'public/reference/iterator_providers.json'), 'utf-8'));
-const extras = { variableTypes, triggers, iteratorProviders };
+const entityTypes = JSON.parse(readFileSync(path.join(root, 'public/reference/entity_types.json'), 'utf-8'));
+const extras = { variableTypes, triggers, iteratorProviders, entityTypes };
 
 let failures = 0;
 function fail(message) {
@@ -67,7 +68,11 @@ function spawnNode(id, extra) {
   return {
     node_id: id,
     block_id: 'spawn_entity',
-    fields: { entity: id },
+    // "CUSTOM:<id>" keeps the node's own id as a findable substring (several
+    // tests below locate specific spawn_entity nodes in the output XML by
+    // this text) while also being a format-valid entity value per
+    // src/lib/validate.ts's ENTITY_TYPE_VALUE_PATTERN.
+    fields: { entity: `CUSTOM:${id}` },
     value_inputs: { x: numNode(`${id}x`), y: numNode(`${id}y`), z: numNode(`${id}z`) },
     ...extra,
   };
@@ -522,7 +527,7 @@ function loadIntoWorkspace(normalized) {
       {
         node_id: 'spawn',
         block_id: 'spawn_entity',
-        fields: { entity: 'minecraft:zombie' },
+        fields: { entity: 'EntityZombie' },
         value_inputs: { x: { node_id: 'cx', block_id: 'coord_x' }, y: { node_id: 'cy', block_id: 'coord_y' }, z: { node_id: 'cz', block_id: 'coord_z' } },
         next: 'tame2',
       },

@@ -1,7 +1,7 @@
 {
   "name": "mcreator-procedure-renderer",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,8 @@
     "check-compat": "tsx scripts/check-compat.mjs",
     "check-mcreator-features": "tsx scripts/check-mcreator-features.mjs",
     "check-variables": "tsx scripts/check-mcreator-features.mjs",
+    "check-selectors": "tsx scripts/check-selectors.mjs",
+    "check-entity-types": "tsx scripts/check-entity-types.mjs",
     "check-pdf-layout": "tsx scripts/check-pdf-layout.mjs"
   },
   "dependencies": {

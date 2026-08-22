@@ -1,0 +1,843 @@
+{
+  "mcreator_version": "2025.1",
+  "note": "MCreator 2025.1のdatalists/entities.yaml（core/datalists/entities.yaml）から抽出。field_data_list_selector（datalist \"entity\" または \"spawnableEntity\"、field名は常に \"entity\"）の値は、この一覧の \"key\" をそのまま文字列で指定する（例: Creeperなら \"EntityCreeper\"）。spawnable=falseの項目（EntityAnimal等の抽象スーパータイプ）は logic_entity_compare の\"(サブ)タイプ判定\" にのみ使え、spawn_entity等では使えない。カスタム（MOD定義）エンティティは \"CUSTOM:<MOD要素名>\" 形式で指定する（net.mcreator.generator.GeneratorWrapper.getElementPlainName + MappableElement.validateReference で確認、mcitem_allblocksと同じ仕組み）。",
+  "field_name": "entity",
+  "datalists": [
+    "entity",
+    "spawnableEntity"
+  ],
+  "custom_prefix": "CUSTOM:",
+  "external_prefix": "EXTERNAL:",
+  "entities": [
+    {
+      "key": "EntityAcaciaBoat",
+      "readable_name_en": "Acacia Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityAcaciaChestBoat",
+      "readable_name_en": "Acacia Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityAgeable",
+      "readable_name_en": "Ageable entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityAllay",
+      "readable_name_en": "Allay",
+      "spawnable": true
+    },
+    {
+      "key": "EntityAmbientCreature",
+      "readable_name_en": "Ambient entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityAnimal",
+      "readable_name_en": "Animal entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityAreaEffectCloud",
+      "readable_name_en": "Area of effect cloud",
+      "spawnable": true
+    },
+    {
+      "key": "EntityArmadillo",
+      "readable_name_en": "Armadillo",
+      "spawnable": true
+    },
+    {
+      "key": "EntityArmorStand",
+      "readable_name_en": "Armor stand",
+      "spawnable": true
+    },
+    {
+      "key": "EntityArrow",
+      "readable_name_en": "Arrow",
+      "spawnable": true
+    },
+    {
+      "key": "EntityAxolotl",
+      "readable_name_en": "Axolotl",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBambooChestRaft",
+      "readable_name_en": "Bamboo Raft with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBambooRaft",
+      "readable_name_en": "Bamboo Raft",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBat",
+      "readable_name_en": "Bat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBee",
+      "readable_name_en": "Bee",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBirchBoat",
+      "readable_name_en": "Birch Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBirchChestBoat",
+      "readable_name_en": "Birch Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBlaze",
+      "readable_name_en": "Blaze",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBlockDisplay",
+      "readable_name_en": "Block display",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBoat",
+      "readable_name_en": "Default (Oak) Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBogged",
+      "readable_name_en": "Bogged",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBreeze",
+      "readable_name_en": "Breeze",
+      "spawnable": true
+    },
+    {
+      "key": "EntityBreezeWindCharge",
+      "readable_name_en": "Breeze wind charge",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCamel",
+      "readable_name_en": "Camel",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCat",
+      "readable_name_en": "Cat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCaveSpider",
+      "readable_name_en": "Cave spider",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCherryBoat",
+      "readable_name_en": "Cherry Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCherryChestBoat",
+      "readable_name_en": "Cherry Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityChestBoat",
+      "readable_name_en": "Default (Oak) Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityChicken",
+      "readable_name_en": "Chicken",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCod",
+      "readable_name_en": "Cod",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCow",
+      "readable_name_en": "Cow",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCreaking",
+      "readable_name_en": "Creaking",
+      "spawnable": true
+    },
+    {
+      "key": "EntityCreature",
+      "readable_name_en": "Creature entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityCreeper",
+      "readable_name_en": "Creeper",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDarkOakBoat",
+      "readable_name_en": "Dark Oak Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDarkOakChestBoat",
+      "readable_name_en": "Dark Oak Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDolphin",
+      "readable_name_en": "Dolphin",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDonkey",
+      "readable_name_en": "Donkey",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDragon",
+      "readable_name_en": "Dragon",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDragonFireball",
+      "readable_name_en": "Dragon fireball",
+      "spawnable": true
+    },
+    {
+      "key": "EntityDrowned",
+      "readable_name_en": "Drowned",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEgg",
+      "readable_name_en": "Egg",
+      "spawnable": true
+    },
+    {
+      "key": "EntityElderGuardian",
+      "readable_name_en": "Elder guardian",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEnderCrystal",
+      "readable_name_en": "Ender crystal",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEnderEye",
+      "readable_name_en": "Eye of ender",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEnderPearl",
+      "readable_name_en": "Ender pearl",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEnderman",
+      "readable_name_en": "Enderman",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEndermite",
+      "readable_name_en": "Endermite",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEvoker",
+      "readable_name_en": "Evoker",
+      "spawnable": true
+    },
+    {
+      "key": "EntityEvokerFangs",
+      "readable_name_en": "Evoker fangs",
+      "spawnable": true
+    },
+    {
+      "key": "EntityExpBottle",
+      "readable_name_en": "Experience bottle",
+      "spawnable": true
+    },
+    {
+      "key": "EntityFallingBlock",
+      "readable_name_en": "Falling block",
+      "spawnable": true
+    },
+    {
+      "key": "EntityFireball",
+      "readable_name_en": "Fireball",
+      "spawnable": true
+    },
+    {
+      "key": "EntityFireworkRocket",
+      "readable_name_en": "Firework rocket",
+      "spawnable": true
+    },
+    {
+      "key": "EntityFishHook",
+      "readable_name_en": "Fishing bobber",
+      "spawnable": false
+    },
+    {
+      "key": "EntityFlying",
+      "readable_name_en": "Flying entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityFox",
+      "readable_name_en": "Fox",
+      "spawnable": true
+    },
+    {
+      "key": "EntityFrog",
+      "readable_name_en": "Frog",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGhast",
+      "readable_name_en": "Ghast",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGiantZombie",
+      "readable_name_en": "Giant",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGlowItemFrame",
+      "readable_name_en": "Glow item frame",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGlowSquid",
+      "readable_name_en": "Glow squid",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGoat",
+      "readable_name_en": "Goat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityGolem",
+      "readable_name_en": "Golem entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityGuardian",
+      "readable_name_en": "Guardian",
+      "spawnable": true
+    },
+    {
+      "key": "EntityHanging",
+      "readable_name_en": "Hanging entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityHoglin",
+      "readable_name_en": "Hoglin",
+      "spawnable": true
+    },
+    {
+      "key": "EntityHorse",
+      "readable_name_en": "Horse",
+      "spawnable": true
+    },
+    {
+      "key": "EntityHusk",
+      "readable_name_en": "Husk",
+      "spawnable": true
+    },
+    {
+      "key": "EntityIllusionIllager",
+      "readable_name_en": "Illusioner",
+      "spawnable": true
+    },
+    {
+      "key": "EntityInteraction",
+      "readable_name_en": "Interaction",
+      "spawnable": true
+    },
+    {
+      "key": "EntityIronGolem",
+      "readable_name_en": "Iron golem",
+      "spawnable": true
+    },
+    {
+      "key": "EntityItem",
+      "readable_name_en": "Item",
+      "spawnable": true
+    },
+    {
+      "key": "EntityItemDisplay",
+      "readable_name_en": "Item display",
+      "spawnable": true
+    },
+    {
+      "key": "EntityItemFrame",
+      "readable_name_en": "Item frame",
+      "spawnable": true
+    },
+    {
+      "key": "EntityJungleBoat",
+      "readable_name_en": "Jungle Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityJungleChestBoat",
+      "readable_name_en": "Jungle Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityLeashKnot",
+      "readable_name_en": "Leash knot",
+      "spawnable": true
+    },
+    {
+      "key": "EntityLightningBolt",
+      "readable_name_en": "Lightning bolt",
+      "spawnable": true
+    },
+    {
+      "key": "EntityLiving",
+      "readable_name_en": "Living entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityLlama",
+      "readable_name_en": "Llama",
+      "spawnable": true
+    },
+    {
+      "key": "EntityLlamaSpit",
+      "readable_name_en": "Llama spit",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMagmaCube",
+      "readable_name_en": "Magma cube",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMangroveBoat",
+      "readable_name_en": "Mangrove Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMangroveChestBoat",
+      "readable_name_en": "Mangrove Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMarker",
+      "readable_name_en": "Marker",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecart",
+      "readable_name_en": "Minecart",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartChest",
+      "readable_name_en": "Minecart with chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartCommandBlock",
+      "readable_name_en": "Minecart with command block",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartContainer",
+      "readable_name_en": "Minecart with container",
+      "spawnable": false
+    },
+    {
+      "key": "EntityMinecartFurnace",
+      "readable_name_en": "Minecart with furnace",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartHopper",
+      "readable_name_en": "Minecart with hopper",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartMobSpawner",
+      "readable_name_en": "Minecart with spawner",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMinecartTNT",
+      "readable_name_en": "Minecart with TNT",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMob",
+      "readable_name_en": "Mob entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityMonster",
+      "readable_name_en": "Monster entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityMooshroom",
+      "readable_name_en": "Mooshroom",
+      "spawnable": true
+    },
+    {
+      "key": "EntityMule",
+      "readable_name_en": "Mule",
+      "spawnable": true
+    },
+    {
+      "key": "EntityOcelot",
+      "readable_name_en": "Ocelot",
+      "spawnable": true
+    },
+    {
+      "key": "EntityOminousItemSpawner",
+      "readable_name_en": "Ominous item spawner",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPainting",
+      "readable_name_en": "Painting",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPaleOakBoat",
+      "readable_name_en": "Pale Oak Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPaleOakChestBoat",
+      "readable_name_en": "Pale Oak Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPanda",
+      "readable_name_en": "Panda",
+      "spawnable": true
+    },
+    {
+      "key": "EntityParrot",
+      "readable_name_en": "Parrot",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPhantom",
+      "readable_name_en": "Phantom",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPig",
+      "readable_name_en": "Pig",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPigZombie",
+      "readable_name_en": "Zombified piglin",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPiglin",
+      "readable_name_en": "Piglin",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPiglinBrute",
+      "readable_name_en": "Piglin brute",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPillager",
+      "readable_name_en": "Pillager",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPlayer",
+      "readable_name_en": "Player",
+      "spawnable": false
+    },
+    {
+      "key": "EntityPlayerMP",
+      "readable_name_en": "Server player",
+      "spawnable": false
+    },
+    {
+      "key": "EntityPolarBear",
+      "readable_name_en": "Polar bear",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPotion",
+      "readable_name_en": "Potion",
+      "spawnable": true
+    },
+    {
+      "key": "EntityPufferfish",
+      "readable_name_en": "Pufferfish",
+      "spawnable": true
+    },
+    {
+      "key": "EntityRabbit",
+      "readable_name_en": "Rabbit",
+      "spawnable": true
+    },
+    {
+      "key": "EntityRavager",
+      "readable_name_en": "Ravager",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySalmon",
+      "readable_name_en": "Salmon",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySheep",
+      "readable_name_en": "Sheep",
+      "spawnable": true
+    },
+    {
+      "key": "EntityShoulderRiding",
+      "readable_name_en": "Shoulder riding entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityShulker",
+      "readable_name_en": "Shulker",
+      "spawnable": true
+    },
+    {
+      "key": "EntityShulkerBullet",
+      "readable_name_en": "Shulker bullet",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySilverfish",
+      "readable_name_en": "Silverfish",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySkeleton",
+      "readable_name_en": "Skeleton",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySkeletonHorse",
+      "readable_name_en": "Skeleton horse",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySlime",
+      "readable_name_en": "Slime",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySmallFireball",
+      "readable_name_en": "Small fireball",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySniffer",
+      "readable_name_en": "Sniffer",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySnowball",
+      "readable_name_en": "Snowball",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySnowman",
+      "readable_name_en": "Snow golem",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySpectralArrow",
+      "readable_name_en": "Spectral arrow",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySpellcasterIllager",
+      "readable_name_en": "Spellcasting illager entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntitySpider",
+      "readable_name_en": "Spider",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySpruceBoat",
+      "readable_name_en": "Spruce Boat",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySpruceChestBoat",
+      "readable_name_en": "Spruce Boat with Chest",
+      "spawnable": true
+    },
+    {
+      "key": "EntitySquid",
+      "readable_name_en": "Squid",
+      "spawnable": true
+    },
+    {
+      "key": "EntityStray",
+      "readable_name_en": "Stray",
+      "spawnable": true
+    },
+    {
+      "key": "EntityStrider",
+      "readable_name_en": "Strider",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTNTPrimed",
+      "readable_name_en": "TNT",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTadpole",
+      "readable_name_en": "Tadpole",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTameable",
+      "readable_name_en": "Tameable entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityTextDisplay",
+      "readable_name_en": "Text display",
+      "spawnable": true
+    },
+    {
+      "key": "EntityThrowable",
+      "readable_name_en": "Throwable entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityTraderLlama",
+      "readable_name_en": "Trader llama",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTrident",
+      "readable_name_en": "Trident",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTropicalFish",
+      "readable_name_en": "Tropical fish",
+      "spawnable": true
+    },
+    {
+      "key": "EntityTurtle",
+      "readable_name_en": "Turtle",
+      "spawnable": true
+    },
+    {
+      "key": "EntityVex",
+      "readable_name_en": "Vex",
+      "spawnable": true
+    },
+    {
+      "key": "EntityVillager",
+      "readable_name_en": "Villager",
+      "spawnable": true
+    },
+    {
+      "key": "EntityVindicator",
+      "readable_name_en": "Vindicator",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWanderingTrader",
+      "readable_name_en": "Wandering trader",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWarden",
+      "readable_name_en": "Warden",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWaterMob",
+      "readable_name_en": "Water mob entity",
+      "spawnable": false
+    },
+    {
+      "key": "EntityWindCharge",
+      "readable_name_en": "Wind charge",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWitch",
+      "readable_name_en": "Witch",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWither",
+      "readable_name_en": "Wither",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWitherSkeleton",
+      "readable_name_en": "Wither skeleton",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWitherSkull",
+      "readable_name_en": "Wither skull",
+      "spawnable": true
+    },
+    {
+      "key": "EntityWolf",
+      "readable_name_en": "Wolf",
+      "spawnable": true
+    },
+    {
+      "key": "EntityXPOrb",
+      "readable_name_en": "Experience orb",
+      "spawnable": true
+    },
+    {
+      "key": "EntityZoglin",
+      "readable_name_en": "Zoglin",
+      "spawnable": true
+    },
+    {
+      "key": "EntityZombie",
+      "readable_name_en": "Zombie",
+      "spawnable": true
+    },
+    {
+      "key": "EntityZombieHorse",
+      "readable_name_en": "Zombie horse",
+      "spawnable": true
+    },
+    {
+      "key": "EntityZombieVillager",
+      "readable_name_en": "Zombie villager",
+      "spawnable": true
+    }
+  ]
+}

@@ -39,5 +39,11 @@ jobs:
       - name: Check MCreator 2025.1 features (variables, triggers, iterator scope)
         run: npm run check-mcreator-features
 
+      - name: Check block/item selectors (mcitem_allblocks/mcitem_all)
+        run: npm run check-selectors
+
+      - name: Check entity-type judgment (logic_entity_compare)
+        run: npm run check-entity-types
+
       - name: Check PDF layout
         run: npm run check-pdf-layout

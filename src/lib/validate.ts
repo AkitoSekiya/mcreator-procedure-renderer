@@ -20,6 +20,8 @@ import type {
   TriggersData,
   IteratorProviderDef,
   IteratorProvidersData,
+  EntityTypeDef,
+  EntityTypesData,
 } from './referenceTypes';
 import type { ResolvedNode, ResolvedVariableDecl } from './resolvedTypes';
 import { normalizeInput } from './normalizeInput';
@@ -43,13 +45,14 @@ export interface ValidationExtras {
   variableTypes?: VariableTypesData;
   triggers?: TriggersData;
   iteratorProviders?: IteratorProvidersData;
+  entityTypes?: EntityTypesData;
 }
 
 export type { Severity, ValidationMessage } from './messages';
 
 export interface ValidationResult {
   messages: ValidationMessage[];
-  /** True iff there are zero error-severity messages (E001-E009). */
+  /** True iff there are zero error-severity messages (all E-codes). */
   ok: boolean;
   /** Present only when ok === true. */
   normalized: NormalizedProcedure | null;
@@ -105,6 +108,46 @@ const VARIABLE_BLOCK_ID_PATTERN = /^variables_(get|set)_([a-z]+)$/;
 /** No iterator-provided dependency is active — the default at every
  * top-level stack root. */
 const EMPTY_PROVIDES: ReadonlySet<string> = new Set();
+
+/** Valid `field_mcitem_selector` values (mcitem_allblocks/mcitem_all's
+ * "value" field), confirmed from MCreator 2025.1 real data:
+ * - `Blocks.<NAME>` / `Blocks.<NAME>#<index>` — vanilla registry reference,
+ *   the literal key format used by both datalists/blocksitems.yaml (the
+ *   selector dialog's data source) and the generator's own
+ *   mappings/blocksitems.yaml (confirmed identical key sets); resolved via
+ *   `net.mcreator.generator.mapping.NameMapper.getMapping(value, index)`,
+ *   which does a direct `map.get(value)` lookup keyed by this exact string.
+ * - `CUSTOM:<ModElementName>` / `CUSTOM:<ModElementName>.<suffix>` — a
+ *   workspace mod element reference; confirmed via
+ *   `net.mcreator.generator.GeneratorWrapper.getElementPlainName` (strips
+ *   "CUSTOM:" and any ".suffix", the remainder is looked up with
+ *   `workspace.containsModElement`) and `MappableElement.validateReference`.
+ * - `EXTERNAL:<literal>` — NameMapper's generic escape hatch (any mapping
+ *   source): the "EXTERNAL:" prefix is stripped and the remainder used
+ *   verbatim, bypassing the mapping table entirely.
+ * Confirmed via `javap -c` decompilation of MCItemBlock.class,
+ * MappableElement.class, NameMapper.class and GeneratorWrapper.class from
+ * MCreator 2025.1's mcreator.jar — see README for details. */
+const MCITEM_SELECTOR_VALUE_PATTERN =
+  /^(Blocks\.[A-Za-z0-9_]+(#\d+)?|CUSTOM:[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?|EXTERNAL:.+)$/;
+
+/** `field_data_list_selector` fields whose datalist is "entity" or
+ * "spawnableEntity" (field name is always "entity" — confirmed via
+ * logic_entity_compare/entity_create/spawn_entity/spawn_entity_with_
+ * rotation[_velocity]/world_entity_inrange[_exists]'s real
+ * neoforge-1.21.1/procedures/*.java.ftl templates, every one of which
+ * resolves the field value through the identical
+ * `generator.map(value, "entities", N)` NameMapper table, so they share one
+ * value format). See entity_types.json for the vanilla catalog. */
+const ENTITY_DATALISTS = new Set(['entity', 'spawnableEntity']);
+/** `Entity<Name>` (e.g. "EntityCreeper", checked against entity_types.json's
+ * catalog as a warning, not hard-rejected — the catalog reflects one
+ * MCreator 2025.1 snapshot and may not be exhaustive), `CUSTOM:<MOD要素名>`
+ * (workspace-dependent, confirmed via the same GeneratorWrapper.
+ * getElementPlainName/MappableElement.validateReference mechanism as
+ * mcitem_allblocks — not checked against a static catalog), or
+ * `EXTERNAL:<literal>` (NameMapper's generic escape hatch). */
+const ENTITY_TYPE_VALUE_PATTERN = /^(Entity[A-Za-z0-9_]+|CUSTOM:[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?|EXTERNAL:.+)$/;
 
 /** Effective `check` type to use for E006 when a value input is one of the
  * dynamic mutator-added names above (not present in blocks_full.json). */
@@ -183,6 +226,7 @@ interface Ctx {
   localVariableDecls: Map<string, { type: string; scope: string }>;
   globalVariableDecls: Map<string, { type: string; scope: string }>;
   iteratorProviders: Map<string, IteratorProviderDef[]>; // `${block_id}:${statement_name}` -> provider defs
+  entityTypes: Map<string, EntityTypeDef>; // key ("EntityCreeper") -> def
 }
 
 function pushMsg(ctx: Ctx, msg: ValidationMessage): void {
@@ -345,7 +389,14 @@ function validateNode(
 
   for (const depName of def.dependencies) {
     const name = depName.split(':')[0];
-    if (name) ctx.depsUsed.add(name);
+    // A dependency already satisfied by an active *_foreach ancestor (e.g.
+    // "directioniterator" inside direction_foreach's "foreach" — see
+    // iterator_providers.json's provides_name, the same MCreator-native
+    // name direction_iterator itself declares as its own dependency) is
+    // locally provided, not something the trigger needs to supply — W001
+    // must not list it as missing just because a *_iterator value block
+    // happens to declare that name as one of its own dependencies.
+    if (name && !activeProvides.has(name)) ctx.depsUsed.add(name);
   }
 
   if (def.required_apis && def.required_apis.length > 0 && !ctx.requiredApiBlocksReported.has(nodeId)) {
@@ -463,6 +514,50 @@ function validateNode(
         nodeId,
         blockId,
       });
+    } else if (fieldDef.type === 'field_mcitem_selector') {
+      if (strValue.length === 0) {
+        pushMsg(ctx, {
+          code: 'E018',
+          severity: 'error',
+          message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}"（field_mcitem_selector）が空です。ブロック/アイテムが選択されていません。`,
+          nodeId,
+          blockId,
+        });
+      } else if (!MCITEM_SELECTOR_VALUE_PATTERN.test(strValue)) {
+        pushMsg(ctx, {
+          code: 'E019',
+          severity: 'error',
+          message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}"（field_mcitem_selector）の値 "${strValue}" は不正な形式です。"Blocks.<名前>"（例: Blocks.ICE, Blocks.STAINED_GLASS#3）、"CUSTOM:<MOD要素名>"、"EXTERNAL:<値>" のいずれかの形式で指定してください。`,
+          nodeId,
+          blockId,
+        });
+      }
+    } else if (fieldDef.type === 'field_data_list_selector' && ENTITY_DATALISTS.has(fieldDef.datalist ?? '')) {
+      if (strValue.length === 0) {
+        pushMsg(ctx, {
+          code: 'E020',
+          severity: 'error',
+          message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}"（エンティティ種類選択）が空です。エンティティ種類が選択されていません。`,
+          nodeId,
+          blockId,
+        });
+      } else if (!ENTITY_TYPE_VALUE_PATTERN.test(strValue)) {
+        pushMsg(ctx, {
+          code: 'E021',
+          severity: 'error',
+          message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}"（エンティティ種類選択）の値 "${strValue}" は不正な形式です。"Entity<名前>"（例: EntityCreeper, EntityZombie）、"CUSTOM:<MOD要素名>"、"EXTERNAL:<値>" のいずれかの形式で指定してください。`,
+          nodeId,
+          blockId,
+        });
+      } else if (/^Entity[A-Za-z0-9_]+$/.test(strValue) && !ctx.entityTypes.has(strValue) && ctx.entityTypes.size > 0) {
+        pushMsg(ctx, {
+          code: 'W013',
+          severity: 'warn',
+          message: `ノード ${nodeId}（block_id: ${blockId}）の field "${key}" の値 "${strValue}" はMCreator 2025.1の既知バニラエンティティ一覧（entity_types.json）に含まれません。`,
+          nodeId,
+          blockId,
+        });
+      }
     }
   }
 
@@ -852,6 +947,9 @@ export function validateProcedure(
   const triggers = new Map<string, TriggerDef>();
   for (const t of extras?.triggers?.triggers ?? []) triggers.set(t.id, t);
 
+  const entityTypes = new Map<string, EntityTypeDef>();
+  for (const e of extras?.entityTypes?.entities ?? []) entityTypes.set(e.key, e);
+
   // Validate + index the top-level `variables` declarations (E014: unknown
   // type/scope value). Only entries that pass become lookupable by
   // validateVariableNode (E013 "undefined variable" naturally covers any
@@ -902,6 +1000,7 @@ export function validateProcedure(
     localVariableDecls,
     globalVariableDecls,
     iteratorProviders,
+    entityTypes,
   };
 
   const stacks: NormalizedNode[][] = doc.stacks.map((stack) =>

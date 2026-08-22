@@ -568,7 +568,7 @@ MCreatorのプロシージャエディタは Google Blockly ベースです。�
 - **視覚的特徴**: 色: #5B80A6（青系・色相210°） / 値ブロック：横長・角丸。左端に六角形/パズル型の差し込みコネクタがあり、他ブロックの入力スロットにはめ込む。上下の接続はない。 / 出力型: Boolean（論理値(true/false)）のスロットにのみ接続可能
 - **入力/フィールド**: `compareTo` ← Entity ／ `entity`: セレクタ[entity]
 - **出力**: Boolean（論理値(true/false)）
-- **ユースケース**: 取得値を他ブロックの入力スロットへ差し込んで使う。
+- **ユースケース**: 「対象EntityがCreeperかどうか」「Zombieかどうか」「Skeletonかどうか」等、特定のエンティティ種類（バニラ・カスタムMOD問わず）を判定するための公式ブロック。MCreator 2025.1が実際に持つ「エンティティ種類判定」の唯一の汎用手段で、`entity_check_creature_type`（UNDEAD/ARTHROPOD/ILLAGER/WATERの広いカテゴリのみ）とは別物。`fields.entity`には`"Entity" + クラス名`相当のキー（例: `EntityCreeper`, `EntityZombie`, `EntitySkeleton`。`public/reference/entity_types.json`に166件の一覧あり。カスタムMOD要素は`CUSTOM:<MOD要素名>`）を指定し、`value_inputs.compareTo`に判定対象のEntity値（例: `entity_from_deps`）を接続する。実際の生成コードは`(compareTo instanceof <Javaクラス名>)`というinstanceof判定になる（`net.mcreator`のneoforge生成テンプレート`logic_entity_compare.java.ftl`で確認）。
 
 ### `logic_negate`
 

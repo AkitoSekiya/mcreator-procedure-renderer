@@ -1,0 +1,201 @@
+{
+  "format_version": 1,
+  "mcreator_version": "2025.1",
+  "procedure_name": "lesson9_circle_blocks",
+  "description": "ローカルNumber変数 r/h/a/b/x/y/z、sin/cos/asinとDEG→RAD変換、repeatによる30回×12度=360度の円形ブロック配置。block-get（world_data_blockat）・block-compare（compare_blockstates）・block-place/replace（block_add/block_replace）を使い、mcitem_allblocksセレクタ（ICE/STAINED_GLASS#3/AIR/VOID_AIR/CAVE_AIR）が描画を通じて指定ブロックを保持し続けることを確認するための回帰テスト用サンプル。",
+  "trigger": "player_right_click_item",
+  "variables": [
+    { "name": "r", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "h", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "a", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "b", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "x", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "y", "type": "number", "scope": "local", "initial_value": 0 },
+    { "name": "z", "type": "number", "scope": "local", "initial_value": 0 }
+  ],
+  "blocks": [
+    {
+      "node_id": "set_r",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "r" },
+      "value_inputs": { "VAL": { "node_id": "r5", "block_id": "math_number", "fields": { "NUM": "5" } } },
+      "next": "set_h"
+    },
+    {
+      "node_id": "set_h",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "h" },
+      "value_inputs": { "VAL": { "node_id": "h64", "block_id": "math_number", "fields": { "NUM": "64" } } },
+      "next": "set_a0"
+    },
+    {
+      "node_id": "set_a0",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "a" },
+      "value_inputs": { "VAL": { "node_id": "a_init", "block_id": "math_number", "fields": { "NUM": "-12" } } },
+      "next": "loop"
+    },
+    {
+      "node_id": "loop",
+      "block_id": "controls_repeat_ext",
+      "value_inputs": { "TIMES": { "node_id": "times30", "block_id": "math_number", "fields": { "NUM": "30" } } },
+      "statement_inputs": { "DO": ["inc_a"] },
+      "next": "place_void"
+    },
+    {
+      "node_id": "inc_a",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "a" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "a_plus_12",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "ADD" },
+          "value_inputs": {
+            "A": { "node_id": "get_a1", "block_id": "variables_get_number", "fields": { "VAR": "a" } },
+            "B": { "node_id": "twelve", "block_id": "math_number", "fields": { "NUM": "12" } }
+          }
+        }
+      },
+      "next": "set_b"
+    },
+    {
+      "node_id": "set_b",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "b" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "a_to_rad",
+          "block_id": "math_singular_ops",
+          "fields": { "OP": "DEG2RAD" },
+          "value_inputs": { "NUM": { "node_id": "get_a2", "block_id": "variables_get_number", "fields": { "VAR": "a" } } }
+        }
+      },
+      "next": "set_x"
+    },
+    {
+      "node_id": "set_x",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "x" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "x_mul",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "MULTIPLY" },
+          "value_inputs": {
+            "A": { "node_id": "get_r1", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": {
+              "node_id": "cos_b",
+              "block_id": "math_singular_ops",
+              "fields": { "OP": "COS" },
+              "value_inputs": { "NUM": { "node_id": "get_b1", "block_id": "variables_get_number", "fields": { "VAR": "b" } } }
+            }
+          }
+        }
+      },
+      "next": "set_z"
+    },
+    {
+      "node_id": "set_z",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "z" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "z_mul",
+          "block_id": "math_dual_ops",
+          "fields": { "OP": "MULTIPLY" },
+          "value_inputs": {
+            "A": { "node_id": "get_r2", "block_id": "variables_get_number", "fields": { "VAR": "r" } },
+            "B": {
+              "node_id": "sin_b",
+              "block_id": "math_singular_ops",
+              "fields": { "OP": "SIN" },
+              "value_inputs": { "NUM": { "node_id": "get_b2", "block_id": "variables_get_number", "fields": { "VAR": "b" } } }
+            }
+          }
+        }
+      },
+      "next": "set_y"
+    },
+    {
+      "node_id": "set_y",
+      "block_id": "variables_set_number",
+      "fields": { "VAR": "y" },
+      "value_inputs": {
+        "VAL": {
+          "node_id": "asin_calc",
+          "block_id": "math_singular_ops",
+          "fields": { "OP": "ASIN" },
+          "value_inputs": { "NUM": { "node_id": "half", "block_id": "math_number", "fields": { "NUM": "0.5" } } }
+        }
+      },
+      "next": "if_air"
+    },
+    {
+      "node_id": "if_air",
+      "block_id": "controls_if",
+      "value_inputs": {
+        "IF0": {
+          "node_id": "cmp",
+          "block_id": "compare_blockstates",
+          "value_inputs": {
+            "a": {
+              "node_id": "cur_block",
+              "block_id": "world_data_blockat",
+              "value_inputs": {
+                "x": { "node_id": "get_x1", "block_id": "variables_get_number", "fields": { "VAR": "x" } },
+                "y": { "node_id": "get_h1", "block_id": "variables_get_number", "fields": { "VAR": "h" } },
+                "z": { "node_id": "get_z1", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+              }
+            },
+            "b": { "node_id": "air_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.AIR" } }
+          }
+        }
+      },
+      "statement_inputs": { "DO0": ["replace_ice"], "ELSE": ["replace_glass"] }
+    },
+    {
+      "node_id": "replace_ice",
+      "block_id": "block_replace",
+      "fields": { "state": "TRUE", "nbt": "FALSE" },
+      "value_inputs": {
+        "block": { "node_id": "ice_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.ICE" } },
+        "x": { "node_id": "get_x2", "block_id": "variables_get_number", "fields": { "VAR": "x" } },
+        "y": { "node_id": "get_h2", "block_id": "variables_get_number", "fields": { "VAR": "h" } },
+        "z": { "node_id": "get_z2", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+      }
+    },
+    {
+      "node_id": "replace_glass",
+      "block_id": "block_replace",
+      "fields": { "state": "TRUE", "nbt": "FALSE" },
+      "value_inputs": {
+        "block": { "node_id": "glass_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.STAINED_GLASS#3" } },
+        "x": { "node_id": "get_x3", "block_id": "variables_get_number", "fields": { "VAR": "x" } },
+        "y": { "node_id": "get_h3", "block_id": "variables_get_number", "fields": { "VAR": "h" } },
+        "z": { "node_id": "get_z3", "block_id": "variables_get_number", "fields": { "VAR": "z" } }
+      }
+    },
+    {
+      "node_id": "place_void",
+      "block_id": "block_add",
+      "value_inputs": {
+        "block": { "node_id": "void_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.VOID_AIR" } },
+        "x": { "node_id": "vx", "block_id": "math_number", "fields": { "NUM": "0" } },
+        "y": { "node_id": "vy", "block_id": "math_number", "fields": { "NUM": "80" } },
+        "z": { "node_id": "vz", "block_id": "math_number", "fields": { "NUM": "0" } }
+      },
+      "next": "place_cave"
+    },
+    {
+      "node_id": "place_cave",
+      "block_id": "block_add",
+      "value_inputs": {
+        "block": { "node_id": "cave_ref", "block_id": "mcitem_allblocks", "fields": { "value": "Blocks.CAVE_AIR" } },
+        "x": { "node_id": "cx", "block_id": "math_number", "fields": { "NUM": "0" } },
+        "y": { "node_id": "cy", "block_id": "math_number", "fields": { "NUM": "81" } },
+        "z": { "node_id": "cz", "block_id": "math_number", "fields": { "NUM": "0" } }
+      }
+    }
+  ]
+}

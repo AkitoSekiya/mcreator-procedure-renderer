@@ -15,7 +15,14 @@ def load_props(path):
         if not line or line.startswith('#') or '=' not in line:
             continue
         k, v = line.split('=', 1)
-        d[k.strip()] = v.replace('\\:', ':').replace('\\=', '=').replace('&amp;', '&')
+        v = v.replace('\\:', ':').replace('\\=', '=').replace('&amp;', '&')
+        # See tools/extract.py's load_props() for why: a handful of
+        # MCreator 2025.1 JA strings (e.g. blockly.block.direction_foreach)
+        # use the full-width "％" instead of ASCII "%" before a placeholder
+        # digit, which Blockly's message0 substitution doesn't recognize —
+        # normalize here so it doesn't render as literal "％1"/"％2" text.
+        v = re.sub(r'％(\d+)', r'%\1', v)
+        d[k.strip()] = v
     return d
 
 EN = load_props(os.path.join(LANG, 'texts.properties'))
